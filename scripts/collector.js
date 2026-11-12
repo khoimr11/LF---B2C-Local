@@ -157,8 +157,9 @@ window.LG = (() => {
     // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
     pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
       S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()) });
-      return JSON.stringify({ parts: Math.ceil(S.pack.length / 900), chars: S.pack.length, orders: rows.length, audit: this.audit() }); },
-    part(i) { return (S.pack || '').slice(i * 900, i * 900 + 900); },
+      return JSON.stringify({ parts: Math.ceil(S.pack.length / 800), chars: S.pack.length, orders: rows.length, audit: this.audit() }); },
+    // mỗi phần trả về dưới dạng chuỗi JSON (có dấu nháy) để dán nguyên văn vào LFSYNC.add(...) trên trang sync.html
+    part(i) { return JSON.stringify((S.pack || '').slice(i * 800, i * 800 + 800)); },
     // đối soát: doanh thu Shopee = giá − voucher shop − 4 loại phí + ship khách trả − phí ship + trợ giá ship; phụ phí = tổng 4 loại phí
     audit() { return S.rows.filter(r => !/hủy/i.test(r.s) && r.inc != null && (Math.round(r.inc - (r.v - r.sh - r.fx - r.sv - r.pi - r.tx + (r.sb || 0) - (r.sf || 0) + (r.ss || 0))) || (r.surcharge != null && Math.round(r.surcharge - r.fx - r.sv - r.pi - r.tx)))).map(r => r.sn); },
     async promoOnly(days = 60) { S.promo = { fs: [], disc: [], vch: [], kpi: [] }; await promo(Math.floor(Date.now() / 1000) - days * 86400); return JSON.stringify({ fs: S.promo.fs.length, disc: S.promo.disc.length, vch: S.promo.vch.length, kpi: S.promo.kpi.length }); },
