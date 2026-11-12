@@ -140,6 +140,13 @@ window.LG = (() => {
     // chỉ trả về đơn trong cửa sổ đọc phí hoặc chưa ở trạng thái cuối, đơn cũ đã chốt được giữ nguyên khi merge
     chunk(i) { return S.rows.filter(r => r.t >= S.feeCut || !/^(Đã giao|Đã hủy|Hoàn thành)$/.test(r.s)).slice(i * 5, i * 5 + 5).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid, r.ward, N(r.sb), N(r.sf), N(r.ss), N(r.fin), N(r.surcharge), r.deal || ''])).join('\n'); },
     promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
+    // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
+    pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
+      S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()) });
+      return JSON.stringify({ parts: Math.ceil(S.pack.length / 900), chars: S.pack.length, orders: rows.length, audit: this.audit() }); },
+    part(i) { return (S.pack || '').slice(i * 900, i * 900 + 900); },
+    // đối soát: doanh thu Shopee = giá − voucher shop − 4 loại phí + ship khách trả − phí ship + trợ giá ship; phụ phí = tổng 4 loại phí
+    audit() { return S.rows.filter(r => !/hủy/i.test(r.s) && r.inc != null && (Math.round(r.inc - (r.v - r.sh - r.fx - r.sv - r.pi - r.tx + (r.sb || 0) - (r.sf || 0) + (r.ss || 0))) || (r.surcharge != null && Math.round(r.surcharge - r.fx - r.sv - r.pi - r.tx)))).map(r => r.sn); },
     async promoOnly(days = 60) { S.promo = { fs: [], disc: [], vch: [], kpi: [] }; await promo(Math.floor(Date.now() / 1000) - days * 86400); return JSON.stringify({ fs: S.promo.fs.length, disc: S.promo.disc.length, vch: S.promo.vch.length, kpi: S.promo.kpi.length }); },
     // gọn token: chỉ trả về phần mới (đánh giá, Ads, sổ Ads trong 30 ngày) — phần cũ đã có trong file mã hóa
     reviews() { return JSON.stringify(S.reviews.filter(r => r[0] >= S.feeCut - 9 * 86400)); },
