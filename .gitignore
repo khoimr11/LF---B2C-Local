@@ -1,0 +1,7 @@
+# never commit decrypted data or secrets
+*.plain.json
+data/*.json
+!data/data.enc.json
+.env*
+node_modules/
+.DS_Store
