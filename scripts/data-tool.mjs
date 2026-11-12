@@ -49,7 +49,7 @@ function merge(data, add) {
     if (!old) { bySn.set(r[0], r); added++; continue; }
     const m = r.slice();
     for (let i = 11; i <= 17; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
-    for (let i = 18; i <= 26; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
+    for (let i = 18; i <= 27; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
     bySn.set(r[0], m); updated++;
   }
   data.orders = [...bySn.values()].sort((a, b) => b[1] - a[1]);
@@ -61,6 +61,11 @@ function merge(data, add) {
     const rk = r => r[4] + '|' + r[0], m = new Map((data.reviews || []).map(r => [rk(r), r]));
     for (const r of add.reviews) m.set(rk(r), r);
     data.reviews = [...m.values()].sort((a, b) => b[0] - a[0]);
+  }
+  if (add.promo) { // promotions: flash sales / discounts / vouchers keyed by id (newest wins); Shopee 7-day tool metrics kept as daily snapshots
+    const P = data.promo || (data.promo = { fs: [], disc: [], vch: [], kpi: [] });
+    for (const k of ['fs', 'disc', 'vch']) { const m = new Map((P[k] || []).map(r => [r[0], r])); (add.promo[k] || []).forEach(r => m.set(r[0], r)); P[k] = [...m.values()].sort((a, b) => (b[k === 'fs' ? 1 : 3]) - (a[k === 'fs' ? 1 : 3])); }
+    const km = new Map((P.kpi || []).map(r => [r[0] + '|' + r[2], r])); (add.promo.kpi || []).forEach(r => km.set(r[0] + '|' + r[2], r)); P.kpi = [...km.values()].sort((a, b) => a[2] - b[2]);
   }
   if (add.ledger && add.ledger.length) { // replace the window the collector covered, keep older history
     const from = Math.min(...add.ledger.map(r => r[0]));

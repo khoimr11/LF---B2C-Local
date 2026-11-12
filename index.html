@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=5">
+<link rel="stylesheet" href="assets/styles.css?v=6">
 </head>
 <body>
 
@@ -46,6 +46,7 @@
       <a href="#overview" data-nav="overview" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="15" width="7" height="6" rx="2"/></svg>Tổng quan</a>
       <a href="#sales" data-nav="sales"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Doanh số</a>
       <a href="#products" data-nav="products"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>Sản phẩm & giá</a>
+      <a href="#promos" data-nav="promos"><svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Khuyến mãi & Flash Sale</a>
       <a href="#customers" data-nav="customers"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Khách hàng & khu vực</a>
       <a href="#reviews" data-nav="reviews"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>Đánh giá</a>
       <a href="#ads" data-nav="ads"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>Shopee Ads</a>
@@ -182,6 +183,26 @@
         </div>
       </section>
 
+      <!-- ===== Promotions ===== -->
+      <section id="promos" class="sec">
+        <div class="sec-h big"><h2>Khuyến mãi & Flash Sale</h2><span class="sec-sub">Đơn được gán vào Flash Sale khi đặt trong khung giờ và đúng giá Flash Sale; còn lại so với giá của Chương trình của shop</span></div>
+        <div class="tiles promo-tiles" id="promoTiles"></div>
+        <div class="card">
+          <div class="card-h"><div><h3>NMV theo nguồn giá</h3><p class="card-sub">Mỗi ngày, NMV đến từ Flash Sale, giá khuyến mãi thường hay giá khác</p></div></div>
+          <div class="chart" id="promoChart"></div>
+          <div class="legend"><span><i class="lg-bar" style="--c:var(--c-ads)"></i>Cột cam: NMV từ Flash Sale</span><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột xanh: NMV giá khuyến mãi thường</span><span><i class="lg-bar" style="--c:var(--label-3)"></i>Cột xám: giá khác</span><span><i class="lg-line" style="--c:var(--c-indigo)"></i>Đường: số giờ chạy Flash Sale trong ngày (trục phải)</span></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>Các khung Flash Sale</h3><p class="card-sub" id="fsSub"></p></div></div>
+          <div class="tbl-scroll tbl-tall" id="fsTable"></div>
+        </div>
+        <div class="cards-2">
+          <div class="card"><div class="card-h"><div><h3>Chương trình giảm giá, combo, mua kèm</h3><p class="card-sub">Các chương trình có thời gian chạm vào khoảng đang chọn</p></div></div><div class="tbl-scroll" id="discTable"></div></div>
+          <div class="card"><div class="card-h"><div><h3>Mã giảm giá của shop</h3><p class="card-sub">Đã dùng / giới hạn lượt dùng, số lượt khách đã lưu mã</p></div></div><div class="tbl-scroll" id="vchTable"></div></div>
+        </div>
+        <div class="card" id="promoKpiCard"></div>
+      </section>
+
       <!-- ===== Customers & region ===== -->
       <section id="customers" class="sec">
         <div class="sec-h big"><h2>Khách hàng & khu vực</h2><span class="sec-sub">Bấm vào tỉnh/thành để xem phường/xã; bấm vào cột giờ để lọc cả dashboard</span></div>
@@ -281,6 +302,6 @@
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js?v=5"></script>
+<script src="assets/app.js?v=6"></script>
 </body>
 </html>

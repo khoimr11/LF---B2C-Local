@@ -46,21 +46,21 @@ window.LG = (() => {
     for (const f of fs) {
       const it = (((await j('/api/marketing/v4/shop_flash_sale/get_shop_flash_sale_item/?flash_sale_id=' + f.flash_sale_id + '&offset=0&limit=100')).data || {}).items || []).filter(x => x.status === 1);
       const x = rep[f.flash_sale_id] || {};
-      // [id, start, end, price (lowest enabled model), stock, purchaseLimit, enabledModels, clicks, reminders, status]
-      S.promo.fs.push([String(f.flash_sale_id), f.start_time, f.end_time, it.length ? Math.min(...it.map(i => i.promotion_price)) : null, it.reduce((s, i) => s + (i.stock || 0), 0), (it[0] || {}).purchase_limit || 0, it.length, x.click_cnt || 0, x.remindme_cnt || 0, f.status]);
+      // [id (last 6 digits), start, durationSec, price (lowest enabled model), stock, purchaseLimit, clicks, reminders]; slots with no enabled product are skipped
+      if (it.length) S.promo.fs.push([String(f.flash_sale_id).slice(-6), f.start_time, f.end_time - f.start_time, Math.min(...it.map(i => i.promotion_price)), it.reduce((s, i) => s + (i.stock || 0), 0), (it[0] || {}).purchase_limit || 0, x.click_cnt || 0, x.remindme_cnt || 0]);
     }
     for (let o = 0; o < 300; o += 10) {
       const r = await P('/api/marketing/v3/public/discount/list/', { discount_type: 0, time_status: 0, offset: o, limit: 10 }); const l = (r.data && r.data.discounts) || [];
       for (const x of l) { const d = x.seller_discount || x.bundle_deal || x.add_on_deal || {}; if (d.end_time < since) continue;
         let price = null; if (x.seller_discount) { const a = await P('/api/marketing/v4/discount/get_discount_items_aggregated/', { promotion_id: d.discount_id, offset: 0, limit: 10 }); const li = ((a.data || {}).discount_item_list || []).filter(i => i.status === 1); if (li.length) price = Math.min(...li.map(i => i.promotion_price)) / 1e5; }
         // [id, kind ('discount'|'combo'|'addon'), name, start, end, price]
-        S.promo.disc.push([String(d.discount_id), x.seller_discount ? 'discount' : x.bundle_deal ? 'combo' : 'addon', d.name || '', d.start_time, d.end_time, price]); }
+        S.promo.disc.push([String(d.discount_id).slice(-6), x.seller_discount ? 'discount' : x.bundle_deal ? 'combo' : 'addon', d.name || '', d.start_time, d.end_time, price]); }
       if (l.length < 10) break;
     }
     for (let o = 0; o < 300; o += 10) {
       const r = await j('/api/marketing/v3/voucher/list/?offset=' + o + '&limit=10&promotion_type=0'); const l = (r.data && r.data.voucher_list) || [];
       // [id, name, code, start, end, percent, fixedValue, maxValue, minSpend, usageLimit, used, claimed, sellerPays]
-      l.filter(v => v.end_time >= since).forEach(v => S.promo.vch.push([String(v.voucher_id), v.name, v.voucher_code, v.start_time, v.end_time, v.discount || 0, Number(v.value) || 0, Number(v.max_value) || 0, Number(v.min_price) || 0, v.usage_limit || 0, v.current_usage || 0, v.distributed_count || 0, (v.rule || {}).is_seller_absorbed === false ? 0 : 1]));
+      l.filter(v => v.end_time >= since).forEach(v => S.promo.vch.push([String(v.voucher_id).slice(-6), v.name, v.voucher_code, v.start_time, v.end_time, v.discount || 0, Number(v.value) || 0, Number(v.max_value) || 0, Number(v.min_price) || 0, v.usage_limit || 0, v.current_usage || 0, v.distributed_count || 0, (v.rule || {}).is_seller_absorbed === false ? 0 : 1]));
       if (l.length < 10) break;
     }
     for (const t of ['shop_flash_sale', 'discount', 'bundle_deal', 'add_on_deal', 'voucher']) {
@@ -139,7 +139,7 @@ window.LG = (() => {
     // [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,voucherShop,voucherShopee,income,sku,return,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal]
     // chỉ trả về đơn trong cửa sổ đọc phí hoặc chưa ở trạng thái cuối, đơn cũ đã chốt được giữ nguyên khi merge
     chunk(i) { return S.rows.filter(r => r.t >= S.feeCut || !/^(Đã giao|Đã hủy|Hoàn thành)$/.test(r.s)).slice(i * 5, i * 5 + 5).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid, r.ward, N(r.sb), N(r.sf), N(r.ss), N(r.fin), N(r.surcharge), r.deal || ''])).join('\n'); },
-    promo() { return JSON.stringify(S.promo); },
+    promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
     async promoOnly(days = 60) { S.promo = { fs: [], disc: [], vch: [], kpi: [] }; await promo(Math.floor(Date.now() / 1000) - days * 86400); return JSON.stringify({ fs: S.promo.fs.length, disc: S.promo.disc.length, vch: S.promo.vch.length, kpi: S.promo.kpi.length }); },
     // gọn token: chỉ trả về phần mới (đánh giá, Ads, sổ Ads trong 30 ngày) — phần cũ đã có trong file mã hóa
     reviews() { return JSON.stringify(S.reviews.filter(r => r[0] >= S.feeCut - 9 * 86400)); },

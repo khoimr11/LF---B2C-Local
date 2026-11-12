@@ -80,7 +80,7 @@ async function fetchEnc() {
 }
 
 /* ================= state & data model ================= */
-let ORDERS = [], ADS = [], PRODUCTS = [], LIST = {}, LEDGER = [], ADSPLIT = {}, REVIEWS = [], META = {};
+let ORDERS = [], ADS = [], PRODUCTS = [], LIST = {}, LEDGER = [], ADSPLIT = {}, REVIEWS = [], META = {}, PROMO = { fs: [], disc: [], vch: [], kpi: [] };
 let WALLET = { paidIn: 0, freeIn: 0, paidUsed: 0, freeUsed: 0, freeBal: 0, paidBal: 0, hasLedger: false };
 const S = { from: 0, to: 0, preset: '30', cmp: 'prev', sku: '', region: '', carrier: '', hour: null, prov: '',
   dailyMetric: 'nmv', monthlyMetric: 'nmv', q: '', status: '', sort: 't', dir: -1, page: 0 };
@@ -92,7 +92,7 @@ function prepare(d) {
   ORDERS = (d.orders || []).map(r => {
     const o = { sn: r[0], t: r[1], st: r[2], s: r[3] || '', q: r[4] || 0, v: r[5] || 0, paid: r[6] || 0, m: r[7] || '', p: r[8] || 0, prov: r[9] || '', car: r[10] || '',
       fx: r[11] || 0, sv: r[12] || 0, pi: r[13] || 0, tx: r[14] || 0, sh: r[15] || 0, pv: r[16] || 0, inc: r[17], sku: r[18] || '', ret: !!r[19], iid: r[20],
-      ward: r[21] || '', sb: r[22] || 0, sf: r[23] || 0, ss: r[24] || 0, fin: !!r[25], surcharge: r[26] };
+      ward: r[21] || '', sb: r[22] || 0, sf: r[23] || 0, ss: r[24] || 0, fin: !!r[25], surcharge: r[26], deal: r[27] || '' };
     o.day = dayKey(o.t); o.hour = Math.floor(((o.t + TZ) % DAY) / 3600); o.wd = keyToDate(o.day).getUTCDay();
     o.region = regionOf(o.prov); o.cx = /hủy/i.test(o.s) || o.st === 5;
     o.cls = o.cx ? 'cx' : /trả hàng|hoàn tiền/i.test(o.s) ? 'cx' : /^Đã giao$|hoàn thành/i.test(o.s) ? 'ok' : /ĐVVC|đang giao|vận chuyển/i.test(o.s) ? 'ship' : 'wait';
@@ -130,6 +130,18 @@ function prepare(d) {
     else { const fr = x.free / (x.free + x.paid); a.free = a.cost * fr; a.paid = a.cost - a.free; }
     return a;
   }).sort((a, b) => a.day - b.day);
+  // promotions: flash sale slots, shop discounts / combos / add-ons, vouchers, Shopee 7-day tool metrics
+  const pr = d.promo || {};
+  PROMO = { fs: (pr.fs || []).map(f => ({ id: f[0], a: f[1], b: f[1] + f[2], price: f[3], stock: f[4], lim: f[5], clk: f[6], rem: f[7] })).sort((x, y) => y.a - x.a),
+    disc: (pr.disc || []).map(x => ({ id: x[0], kind: x[1], name: x[2], a: x[3], b: x[4], price: x[5] })).sort((x, y) => y.a - x.a),
+    vch: (pr.vch || []).map(v => ({ id: v[0], name: v[1], code: v[2], a: v[3], b: v[4], pct: v[5], val: v[6], max: v[7], min: v[8], lim: v[9], used: v[10], claimed: v[11], seller: v[12] })).sort((x, y) => y.a - x.a),
+    kpi: pr.kpi || [] };
+  // each order's price source: Flash Sale (in a slot and at the slot price), shop discount price, combo/add-on, or other
+  ORDERS.forEach(o => {
+    const f = PROMO.fs.find(x => o.t >= x.a && o.t < x.b && Math.abs(x.price - o.p) < 1);
+    const dc = !f && PROMO.disc.find(x => x.kind === 'discount' && o.t >= x.a && o.t <= x.b && x.price && Math.abs(x.price - o.p) < 1);
+    o.fs = f ? f.id : ''; o.src = f ? 'fs' : o.deal ? 'deal' : dc ? 'disc' : 'other'; o.discName = dc ? dc.name : '';
+  });
   REVIEWS = (d.reviews || []).map(r => ({ t: r[0], day: dayKey(r[0]), star: r[1], text: r[2] || '', media: r[3] || 0, sn: r[4], replied: !!r[5], rt: r[6] || 0, hidden: !!r[7] })).sort((a, b) => b.t - a.t);
 }
 
@@ -302,7 +314,7 @@ function render() {
   $('#heroNote').textContent = (filt.length ? 'Đang lọc: ' + filt.join(' · ') + ' · ' : '') + `${C.orders} đơn hợp lệ · ${C.units} sản phẩm · ${C.cxN} đơn hủy`;
   syncControls();
   [renderBiz, renderWaterfall, renderGroups, renderTarget, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
-   renderRegion, renderProv, renderWard, renderHour, renderCarrier, renderReviews, renderAds, renderOrders].forEach(f => { try { f(); } catch (e) { console.error(f.name, e); } });
+   renderPromos, renderRegion, renderProv, renderWard, renderHour, renderCarrier, renderReviews, renderAds, renderOrders].forEach(f => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
 
 function seriesBy(f) { const out = Array(C.days).fill(0); C.ok.forEach(o => { const i = o.day - C.a; if (i >= 0 && i < out.length) out[i] += f(o); }); return out; }
@@ -363,7 +375,7 @@ function renderGroups() {
       rows: [{ k: 'Tổng đơn đặt', v: C.totalN + ' đơn', d: D(x => x.totalN) }, { k: 'Đơn hủy', v: C.cxN + ' đơn', ratio: pct(C.cxRate), d: D(x => x.cxN, 1) }, { k: 'Trả hàng / hoàn tiền', v: C.retN + ' đơn', ratio: pct(C.retRate), d: D(x => x.retN, 1) }, { k: 'Đã chốt doanh thu', v: C.finalN + ' đơn', ratio: pct(C.finalN / (C.orders || 1)) }] }),
     mcard({ icon: ICON.promo, title: 'Khuyến mãi', color: 'var(--c-indigo)', hero: { label: `Voucher shop (shop tự chi) · ${pct(C.sh / n)} NMV`, value: money(C.sh), d: D(x => x.sh, 1) },
       viz: stackBar([{ l: 'Voucher shop', v: C.sh, c: 'var(--c-indigo)' }, { l: 'Voucher Shopee', v: C.pv, c: 'var(--c-teal)' }]),
-      rows: [{ k: 'Voucher shop (shop trả)', v: money(C.sh), ratio: rp(C.sh), d: D(x => x.sh, 1) }, { k: 'Voucher & trợ giá Shopee (sàn trả)', v: money(C.pv), ratio: rp(C.pv), d: D(x => x.pv) }, { k: 'Giảm giá so giá niêm yết', v: money(C.promo), ratio: rp(C.promo), d: D(x => x.promo), cls: 'dim' }],
+      rows: [{ k: 'NMV từ Flash Sale', v: money(sum(C.ok.filter(o => o.src === 'fs'), o => o.v)), ratio: rp(sum(C.ok.filter(o => o.src === 'fs'), o => o.v)) }, { k: 'Voucher shop (shop trả)', v: money(C.sh), ratio: rp(C.sh), d: D(x => x.sh, 1) }, { k: 'Voucher & trợ giá Shopee (sàn trả)', v: money(C.pv), ratio: rp(C.pv), d: D(x => x.pv) }, { k: 'Giảm giá so giá niêm yết', v: money(C.promo), ratio: rp(C.promo), d: D(x => x.promo), cls: 'dim' }],
       note: 'Giảm giá so với giá niêm yết đã nằm trong giá bán (NMV) nên không trừ thêm. Chỉ voucher shop là chi phí.' }),
     mcard({ icon: ICON.ads, title: 'Marketing & Ads', color: 'var(--c-blue)', hero: { label: `Tổng chi phí Ads chạy · trong đó LF nạp ${money(C.A.paid)} (${pct(C.A.paid / n)} NMV)`, value: money(C.A.cost), d: D(x => x.A.cost, 1) },
       viz: stackBar([{ l: 'Ads LF nạp', v: C.A.paid, c: 'var(--c-blue)' }, { l: 'Ads Shopee tặng', v: C.A.free, c: 'var(--c-good)' }]),
@@ -463,6 +475,65 @@ function renderSku() {
     PRODUCTS.map(p => { const sold = sum(last30.filter(o => o.sku === p[4]), o => o.q) / 30, cover = sold ? p[7] / sold : null;
       const st = p[7] === 0 ? '<span class="status cx">Hết hàng</span>' : cover != null ? `<span class="status ${cover < 14 ? 'wait' : 'ok'}">${full(cover)} ngày</span>` : '<span class="muted">Chưa bán</span>';
       return `<tr><td><b>${esc(p[4])}</b> <span class="muted">${esc(p[3])}</span></td><td class="r">${short(p[5])}</td><td class="r">${p[6] ? short(p[6]) : '–'}</td><td class="r">${p[7] ?? '–'}</td><td class="r">${num2(sold)}</td><td class="r">${st}</td></tr>`; }).join('') + '</tbody></table>' : '';
+}
+
+/* ---------- promotions ---------- */
+const SRC = { fs: ['Flash Sale', 'var(--c-ads)'], disc: ['Giá khuyến mãi thường', 'var(--c-brand)'], deal: ['Combo / mua kèm', 'var(--c-indigo)'], other: ['Giá khác', 'var(--label-3)'] };
+const hm = t => { const d = new Date((t + TZ) * 1000); return p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()); };
+const slotLabel = f => dm(dayKey(f.a)) + ' ' + hm(f.a) + '–' + hm(f.b);
+const inRange = (a, b) => b >= (S.from * DAY - TZ) && a <= ((S.to + 1) * DAY - TZ);
+function renderPromos() {
+  const ok = C.ok, by = k => ok.filter(o => o.src === k), n = C.nmv || 1;
+  const grp = k => { const os = by(k), q = sum(os, o => o.q), v = sum(os, o => o.v); return { os, q, v, net: sum(os, o => o.prodNet), n: os.length }; };
+  const G = { fs: grp('fs'), disc: grp('disc'), deal: grp('deal'), other: grp('other') };
+  const slots = PROMO.fs.filter(f => inRange(f.a, f.b) && (!S.sku || true));
+  const slotOrders = f => C.os.filter(o => o.fs === f.id);
+  const hit = slots.filter(f => slotOrders(f).some(o => !o.cx)).length;
+  const vOrders = ok.filter(o => o.sh > 0);
+  const unit = g => g.q ? g.net / g.q : NaN;
+  const T = [
+    ['NMV từ Flash Sale', money(G.fs.v), `${pct(G.fs.v / n)} NMV · ${G.fs.n} đơn · ${G.fs.q} sp`, 'fs'],
+    ['NMV giá KM thường', money(G.disc.v), `${pct(G.disc.v / n)} NMV · ${G.disc.n} đơn · ${G.disc.q} sp`, 'disc'],
+    ['Thực thu / sp: Flash Sale', isFinite(unit(G.fs)) ? money(unit(G.fs)) : '–', isFinite(unit(G.disc)) ? `Giá thường: ${short(unit(G.disc))} ₫` : ''],
+    ['Khung Flash Sale đã chạy', String(slots.length), slots.length ? `${hit} khung có đơn (${pct(hit / slots.length, 0)})` : 'Không có khung nào'],
+    ['Đơn dùng voucher shop', String(vOrders.length), `${pct(vOrders.length / (C.orders || 1), 0)} đơn · ${short(sum(vOrders, o => o.sh))} ₫`],
+    ['Combo / mua kèm', String(G.deal.n) + ' đơn', G.deal.n ? `${short(G.deal.v)} ₫ NMV` : 'Chưa có đơn combo']
+  ];
+  $('#promoTiles').innerHTML = T.map(([l, v, f, k]) => `<div class="tile ${k === 'fs' ? 'fs' : k === 'disc' ? 'free' : ''}"><span class="tile-l">${l}</span><span class="tile-v">${v}</span><span class="tile-f"><em>${f}</em></span></div>`).join('');
+  // daily stacked chart
+  const labels = [], ser = { fs: [], disc: [], deal: [], other: [] }, hrs = [], dayOs = [];
+  for (let k = C.a; k <= C.b; k++) {
+    labels.push(dm(k)); const os = ok.filter(o => o.day === k); dayOs.push(C.os.filter(o => o.day === k));
+    for (const s2 in ser) ser[s2].push(sum(os.filter(o => o.src === s2), o => o.v));
+    const a = k * DAY - TZ, b = a + DAY; hrs.push(sum(PROMO.fs.filter(f => f.b > a && f.a < b), f => (Math.min(f.b, b) - Math.max(f.a, a)) / 3600));
+  }
+  const series = ['fs', 'disc', 'deal', 'other'].filter(k => ser[k].some(v => v)).map(k => ({ vals: ser[k], color: SRC[k][1] }));
+  colChart($('#promoChart'), { labels, series: series.length ? series : [{ vals: ser.other, color: SRC.other[1] }], line: { vals: hrs, color: 'var(--c-indigo)' }, y2Fmt: v => num2(v) + 'h', height: 260,
+    tipFn: i => { const k = C.a + i, os = dayOs[i].filter(o => !o.cx), sl = PROMO.fs.filter(f => dayKey(f.a) === k);
+      return `<b>${dmy(k)}</b>` + tipRows(['fs', 'disc', 'deal', 'other'].filter(s2 => ser[s2][i]).map(s2 => [SRC[s2][0], `${money(ser[s2][i])} · ${os.filter(o => o.src === s2).length} đơn`, SRC[s2][1]]).concat([
+        ['Giờ chạy Flash Sale', num2(hrs[i]) + ' giờ', 'var(--c-indigo)'], sl.length ? ['Khung giờ', sl.slice().sort((x, y) => x.a - y.a).map(f => hm(f.a) + '–' + hm(f.b) + ' @' + short(f.price)).join(', ')] : null])); } });
+  // flash sale slots table
+  $('#fsSub').textContent = slots.length ? `${slots.length} khung trong khoảng đang chọn · đơn được tính khi đặt trong khung và đúng giá Flash Sale` : 'Không có khung Flash Sale trong khoảng đang chọn';
+  $('#fsTable').innerHTML = slots.length ? `<table><thead><tr><th>Khung giờ</th><th class="r">Giá Flash Sale</th><th class="r">Kho FS</th><th class="r">Giới hạn/khách</th><th class="r">Lượt click</th><th class="r">Nhắc tôi</th><th class="r">Đơn</th><th class="r">SP</th><th class="r">NMV</th></tr></thead><tbody>` +
+    slots.map(f => { const os = slotOrders(f).filter(o => !o.cx), live = Date.now() / 1000 >= f.a && Date.now() / 1000 < f.b, soon = Date.now() / 1000 < f.a;
+      return `<tr class="${os.length ? 'hl' : ''}"><td>${slotLabel(f)} ${live ? '<span class="pill free">Đang chạy</span>' : soon ? '<span class="pill">Sắp tới</span>' : ''}</td><td class="r"><b>${full(f.price)}</b></td><td class="r">${f.stock}</td><td class="r">${f.lim || '–'}</td><td class="r">${f.clk || '–'}</td><td class="r">${f.rem || '–'}</td><td class="r">${os.length || '–'}</td><td class="r">${sum(os, o => o.q) || '–'}</td><td class="r">${os.length ? full(sum(os, o => o.v)) : '–'}</td></tr>`; }).join('') + '</tbody></table>' : '<p class="empty-note">Không có khung Flash Sale trong khoảng này.</p>';
+  // discounts / combos / add-ons
+  const KIND = { discount: 'Chương trình của shop', combo: 'Combo khuyến mãi', addon: 'Mua kèm deal sốc' }, now = Date.now() / 1000;
+  const ds = PROMO.disc.filter(x => inRange(x.a, x.b));
+  $('#discTable').innerHTML = ds.length ? `<table><thead><tr><th>Chương trình</th><th>Thời gian</th><th class="r">Giá</th><th class="r">Đơn</th></tr></thead><tbody>` +
+    ds.map(x => { const os = ok.filter(o => x.kind === 'discount' ? o.src === 'disc' && o.discName === x.name && o.t >= x.a && o.t <= x.b : o.deal === x.kind && o.t >= x.a && o.t <= x.b);
+      return `<tr><td><span class="cell2">${esc(x.name.trim() || '—')}<em>${KIND[x.kind] || x.kind}${now >= x.a && now <= x.b ? ' · <span class="up">đang chạy</span>' : ''}</em></span></td><td><span class="cell2">${dm(dayKey(x.a))} ${hm(x.a)}<em>đến ${dm(dayKey(x.b))} ${hm(x.b)}</em></span></td><td class="r">${x.price ? full(x.price) : '–'}</td><td class="r">${os.length || '–'}</td></tr>`; }).join('') + '</tbody></table>' : '<p class="empty-note">Không có chương trình trong khoảng này.</p>';
+  // vouchers
+  const vs = PROMO.vch.filter(v => inRange(v.a, v.b));
+  $('#vchTable').innerHTML = vs.length ? `<table><thead><tr><th>Mã</th><th>Giảm</th><th class="r">Đơn tối thiểu</th><th class="r">Đã dùng</th><th class="r">Đã lưu</th></tr></thead><tbody>` +
+    vs.map(v => `<tr><td><span class="cell2">${esc(v.name)}<em>${esc(v.code)}${now >= v.a && now <= v.b ? ' · <span class="up">đang chạy</span>' : ' · đến ' + dm(dayKey(v.b))}</em></span></td><td>${v.pct ? v.pct + '%' + (v.max ? ` <span class="muted">tối đa ${short(v.max)}</span>` : '') : short(v.val) + ' ₫'}</td><td class="r">${short(v.min)}</td><td class="r"><b>${v.used}</b> / ${v.lim}</td><td class="r">${v.claimed}</td></tr>`).join('') + '</tbody></table>' : '<p class="empty-note">Không có mã giảm giá trong khoảng này.</p>';
+  // Shopee's own 7-day metrics per tool (latest snapshot)
+  const last = {}; PROMO.kpi.forEach(r => { if (!last[r[0]] || r[2] > last[r[0]][2]) last[r[0]] = r; });
+  const TN = { shop_flash_sale: 'Flash Sale của shop', discount: 'Chương trình của shop', voucher: 'Mã giảm giá', bundle_deal: 'Combo khuyến mãi', add_on_deal: 'Mua kèm deal sốc' };
+  const ks = Object.keys(TN).filter(k => last[k]), any = ks[0] && last[ks[0]];
+  $('#promoKpiCard').innerHTML = any ? `<div class="card-h"><div><h3>Hiệu quả theo Shopee</h3><p class="card-sub">Số Shopee tự tính cho 7 ngày ${dmy(dayKey(any[1]))} – ${dmy(dayKey(any[2]) - 1)} (không theo bộ lọc ngày). Một đơn có thể được tính ở nhiều công cụ.</p></div></div>
+    <div class="tbl-scroll"><table><thead><tr><th>Công cụ</th><th class="r">Doanh số</th><th class="r">Đơn</th><th class="r">Người mua</th><th class="r">Sản phẩm</th><th class="r">Lượt dùng</th></tr></thead><tbody>` +
+    ks.map(k => { const r = last[k]; return `<tr><td>${TN[k]}</td><td class="r"><b>${r[3] ? full(r[3]) + ' ₫' : '–'}</b></td><td class="r">${r[4] || '–'}</td><td class="r">${r[5] || '–'}</td><td class="r">${r[6] || '–'}</td><td class="r">${r[7] || '–'}</td></tr>`; }).join('') + '</tbody></table></div>' : '<div class="card-h"><div><h3>Hiệu quả theo Shopee</h3><p class="card-sub">Chưa có dữ liệu</p></div></div>';
 }
 
 /* ---------- region ---------- */
@@ -584,7 +655,7 @@ function renderOrders() {
     page.map((o, i) => `<tr data-tip="${i}"><td class="sn">${esc(o.sn)}</td><td>${fmtT(o.t)}</td><td><span class="status ${o.cls}">${esc(o.s || '—')}</span></td><td><span class="cell2">${esc(o.ward)}<em>${esc(o.prov)}</em></span></td><td>${esc(o.sku)} <span class="muted">${esc(o.m)}</span></td><td class="r">${o.q}</td><td class="r">${o.cx ? '<s class="muted">' + full(o.v) + '</s>' : full(o.v)}</td><td class="r">${o.cx ? '–' : full(o.fee)}</td><td class="r">${o.cx || !o.sh ? '–' : full(o.sh)}</td><td class="r"><b>${o.cx ? '–' : full(o.prodNet)}</b></td><td class="r">${o.cx ? '–' : full(o.income)}${o.cx ? '' : o.fin ? '<em class="tag ok">đã chốt</em>' : '<em class="tag">ước tính</em>'}</td></tr>`).join('') + '</tbody></table>'
     : '<p class="empty-note">Không có đơn khớp bộ lọc.</p>';
   bindTips($('#ordersTable'), i => { const o = page[+i]; if (o.cx) return `<b>${esc(o.sn)}</b><div class="tr"><span>Đơn đã hủy, không tính NMV</span></div>`;
-    return `<b>${esc(o.sn)} · ${o.q} × ${money(o.p)}</b>` + tipRows([['NMV', money(o.v)], ['Phí cố định', '−' + full(o.fx) + ' · ' + pct(o.fx / o.v)], ['Phí dịch vụ', '−' + full(o.sv) + ' · ' + pct(o.sv / o.v)], ['Phí xử lý GD', '−' + full(o.tx) + ' · ' + pct(o.tx / o.v)], ['PiShip', '−' + full(o.pi)], ['Voucher shop', '−' + full(o.sh)],
+    return `<b>${esc(o.sn)} · ${o.q} × ${money(o.p)}</b>` + tipRows([['Nguồn giá', SRC[o.src][0] + (o.discName ? ' · ' + esc(o.discName) : '')], ['NMV', money(o.v)], ['Phí cố định', '−' + full(o.fx) + ' · ' + pct(o.fx / o.v)], ['Phí dịch vụ', '−' + full(o.sv) + ' · ' + pct(o.sv / o.v)], ['Phí xử lý GD', '−' + full(o.tx) + ' · ' + pct(o.tx / o.v)], ['PiShip', '−' + full(o.pi)], ['Voucher shop', '−' + full(o.sh)],
       ['= Thực thu sản phẩm', money(o.prodNet) + ' · ' + pct(o.prodNet / o.v)], o.shipNet ? ['Ship đi qua (khách trả/trợ giá)', (o.shipNet > 0 ? '+' : '') + full(o.shipNet)] : null, ['Shopee chuyển', money(o.income) + (o.fin ? ' (đã chốt)' : ' (ước tính)')], o.recon != null ? ['Đối soát với Shopee', o.recon === 0 ? '✓ khớp' : 'lệch ' + full(o.recon)] : null]); }, 'tbody tr');
   $$('#ordersTable th[data-sort]').forEach(h => h.addEventListener('click', () => { const k = h.dataset.sort; S.dir = S.sort === k ? -S.dir : -1; S.sort = k; renderOrders(); }));
   $('#pager').innerHTML = rows.length > PAGE ? `<span>${S.page * PAGE + 1}–${Math.min(rows.length, (S.page + 1) * PAGE)} / ${rows.length} đơn</span><div><button class="btn-ghost sm" data-pg="-1" ${S.page ? '' : 'disabled'}>Trước</button><button class="btn-ghost sm" data-pg="1" ${S.page < pages - 1 ? '' : 'disabled'}>Sau</button></div>` : `<span>${rows.length} đơn</span>`;
@@ -626,9 +697,9 @@ function bind() {
   $('#themeBtn').addEventListener('click', () => { const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; store.set('lf-theme', r.dataset.theme); });
   $('#logoutBtn').addEventListener('click', () => { store.del('lf-key'); location.reload(); });
   $('#openFilters').addEventListener('click', openSheet); $('#tabFilters').addEventListener('click', openSheet); $('#closeFilters').addEventListener('click', closeSheet); $('#scrim').addEventListener('click', closeSheet);
-  const secs = ['overview', 'sales', 'products', 'customers', 'reviews', 'ads', 'orders'], names = { overview: 'Tổng quan', sales: 'Doanh số', products: 'Sản phẩm & giá', customers: 'Khách hàng & khu vực', reviews: 'Đánh giá', ads: 'Shopee Ads', orders: 'Đơn hàng' };
+  const secs = ['overview', 'sales', 'products', 'promos', 'customers', 'reviews', 'ads', 'orders'], names = { overview: 'Tổng quan', sales: 'Doanh số', products: 'Sản phẩm & giá', promos: 'Khuyến mãi & Flash Sale', customers: 'Khách hàng & khu vực', reviews: 'Đánh giá', ads: 'Shopee Ads', orders: 'Đơn hàng' };
   const onScroll = () => { $('#toolbar').classList.toggle('scrolled', scrollY > 60); let cur = 'overview'; secs.forEach(id => { const el = document.getElementById(id); if (el && el.getBoundingClientRect().top < 140) cur = id; });
-    $('#tbTitle').textContent = names[cur]; $$('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === cur || (cur === 'products' && a.dataset.nav === 'sales' && a.closest('.tabbar')) || (cur === 'reviews' && a.dataset.nav === 'customers' && a.closest('.tabbar')) || (cur === 'orders' && a.dataset.nav === 'ads' && a.closest('.tabbar')))); };
+    $('#tbTitle').textContent = names[cur]; $$('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === cur || ((cur === 'products' || cur === 'promos') && a.dataset.nav === 'sales' && a.closest('.tabbar')) || (cur === 'reviews' && a.dataset.nav === 'customers' && a.closest('.tabbar')) || (cur === 'orders' && a.dataset.nav === 'ads' && a.closest('.tabbar')))); };
   addEventListener('scroll', () => requestAnimationFrame(onScroll), { passive: true }); onScroll();
   let rw = innerWidth, rt; addEventListener('resize', () => { if (Math.abs(innerWidth - rw) < 20) return; rw = innerWidth; clearTimeout(rt); rt = setTimeout(render, 160); });
   $$('.side-nav a').forEach(a => a.addEventListener('click', closeSheet));
