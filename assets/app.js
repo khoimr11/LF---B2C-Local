@@ -583,7 +583,7 @@ function renderExpress() {
   const ok = C.ok, known = ok.filter(o => o.exp !== null), ex = known.filter(o => o.exp), n = C.nmv || 1;
   const hrs = os => { const t = os.filter(o => o.td && o.t && o.td > o.t); return t.length ? sum(t, o => (o.td - o.t) / 3600) / t.length : NaN; };
   const shipAvg = os => os.length ? sum(os, o => o.sf) / os.length : NaN, dur = h => !isFinite(h) ? '–' : h < 48 ? num2(h) + ' giờ' : num2(h / 24) + ' ngày';
-  $('#expSub').textContent = !known.length ? 'Dữ liệu kênh vận chuyển sẽ có từ lần cập nhật tự động tiếp theo' : known.length < ok.length ? `Kênh vận chuyển có cho ${known.length}/${ok.length} đơn (đơn cũ hơn chưa có thông tin này) · thời gian giao tính từ lúc đặt đến lúc giao thành công` : 'Theo kênh vận chuyển khách chọn khi đặt · thời gian giao tính từ lúc đặt đến lúc giao thành công';
+  $('#expSub').textContent = !known.length ? 'Dữ liệu kênh vận chuyển sẽ có từ lần cập nhật tự động tiếp theo' : known.length < ok.length ? `Kênh vận chuyển có cho ${known.length}/${ok.length} đơn (đơn cũ hơn chưa có thông tin này) · thời gian giao tính từ lúc đặt đến lúc đơn hoàn tất trên Shopee` : 'Theo kênh vận chuyển khách chọn khi đặt · thời gian giao tính từ lúc đặt đến lúc đơn hoàn tất trên Shopee';
   const T = [['Đơn giao hỏa tốc', known.length ? `${ex.length} đơn` : '–', known.length ? `${pct(ex.length / known.length)} số đơn` : 'Chưa có dữ liệu', 'fs'],
     ['NMV hỏa tốc', known.length ? money(sum(ex, o => o.v)) : '–', known.length ? pct(sum(ex, o => o.v) / n) + ' NMV' : ''],
     ['Thời gian giao TB: hỏa tốc', dur(hrs(ex)), ''], ['Thời gian giao TB: thường', dur(hrs(known.filter(o => !o.exp))), ''],
