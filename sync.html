@@ -116,11 +116,10 @@ $('#fKey').addEventListener('submit', async e => {
   refresh();
 });
 $('#fTok').addEventListener('submit', async e => {
-  e.preventDefault(); const t = $('#tok').value.trim();
+  e.preventDefault(); const t = $('#tok').value.trim(); if (!/^(github_pat_|ghp_)/.test(t)) { log('Mã phải bắt đầu bằng github_pat_ — kiểm tra lại đã copy đúng chưa'); return; }
   try {
     const r = await fetch('https://api.github.com/repos/' + REPO, { headers: { Authorization: 'Bearer ' + t, Accept: 'application/vnd.github+json' } });
     const j = await r.json(); if (!r.ok) throw new Error(r.status);
-    if (!(j.permissions && j.permissions.push)) { log('Mã đọc được repo nhưng chưa có quyền ghi (Contents: Read and write)'); return; }
     ls.set('lf-gh', t); $('#tok').value = ''; log('Mã GitHub hợp lệ, đã lưu');
   } catch (x) { log('Mã GitHub không dùng được cho repo ' + REPO + ' (' + x.message + ')'); }
   refresh();
