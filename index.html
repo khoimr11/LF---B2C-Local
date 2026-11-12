@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/styles.css?v=4">
 </head>
 <body>
 
@@ -39,14 +39,15 @@
     <div class="side-head">
       <img src="assets/logo.png" alt="Living Furniture" class="side-logo" width="64" height="48">
       <div><div class="side-title">Living Furniture</div><div class="side-sub">Shopee · living_furniture</div></div>
-      <button class="icon-btn only-mobile" id="closeFilters" aria-label="Đóng bộ lọc">✕</button>
+      <button class="icon-btn only-mobile" id="closeFilters" aria-label="Đóng bộ lọc"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
 
     <nav class="side-nav" aria-label="Mục">
       <a href="#overview" data-nav="overview" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="15" width="7" height="6" rx="2"/></svg>Tổng quan</a>
       <a href="#sales" data-nav="sales"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Doanh số</a>
-      <a href="#products" data-nav="products"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>Sản phẩm</a>
-      <a href="#customers" data-nav="customers"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Khu vực & giờ</a>
+      <a href="#products" data-nav="products"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>Sản phẩm & giá</a>
+      <a href="#customers" data-nav="customers"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Khách hàng & khu vực</a>
+      <a href="#reviews" data-nav="reviews"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>Đánh giá</a>
       <a href="#ads" data-nav="ads"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>Shopee Ads</a>
       <a href="#orders" data-nav="orders"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Đơn hàng</a>
     </nav>
@@ -60,8 +61,8 @@
         <button data-p="year">Năm nay</button><button data-p="all">Toàn bộ</button>
       </div>
       <div class="dates">
-        <label><span>Từ</span><input type="date" id="dFrom"></label>
-        <label><span>Đến</span><input type="date" id="dTo"></label>
+        <label><span>Từ ngày</span><input type="date" id="dFrom"></label>
+        <label><span>Đến ngày</span><input type="date" id="dTo"></label>
       </div>
       <label class="sel"><span>Theo tháng</span><select id="monthSel"><option value="">Chọn tháng…</option></select></label>
       <label class="sel"><span>So sánh với</span><select id="cmpSel"><option value="prev">Kỳ trước cùng độ dài</option><option value="yoy">Cùng kỳ năm trước</option><option value="none">Không so sánh</option></select></label>
@@ -77,7 +78,7 @@
     <div class="side-foot">
       <div class="sync" id="syncInfo">—</div>
       <div class="side-actions">
-        <button class="btn-ghost sm" id="themeBtn">Giao diện</button>
+        <button class="btn-ghost sm" id="themeBtn">Sáng / tối</button>
         <button class="btn-ghost sm" id="logoutBtn">Đăng xuất</button>
       </div>
     </div>
@@ -88,39 +89,48 @@
       <button class="icon-btn only-mobile" id="openFilters" aria-label="Mở bộ lọc"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
       <div class="tb-title"><span id="tbTitle">Tổng quan</span><span class="tb-range" id="tbRange">—</span></div>
       <div class="tb-right">
-        <span class="chip-live" id="liveChip"><i></i>Cập nhật 16:00 hằng ngày</span>
-        <button class="btn-ghost sm" id="exportBtn">Xuất CSV</button>
+        <span class="chip-live"><i></i>Tự cập nhật 16:00 hằng ngày</span>
+        <button class="btn-ghost sm" id="exportBtn">Xuất CSV đơn hàng</button>
       </div>
     </header>
 
     <div class="content">
-      <!-- Overview -->
+      <!-- ===== Overview ===== -->
       <section id="overview" class="sec">
         <div class="hero">
           <div>
             <div class="eyebrow" id="heroRange">—</div>
             <h1 class="large-title">Tổng quan</h1>
+            <p class="hero-note" id="heroNote"></p>
           </div>
-          <div class="hero-note" id="heroNote"></div>
+          <div class="hero-cmp" id="cmpLabel"></div>
         </div>
 
         <div class="biz" id="biz"></div>
 
-        <div class="sec-h"><h2>Chỉ số nổi bật</h2><span class="sec-sub" id="cmpLabel"></span></div>
-        <div class="cards-3" id="groups"></div>
+        <div class="card waterfall-card">
+          <div class="card-h">
+            <div><h3>Từ NMV đến NMV thực nhận</h3><p class="card-sub">Mỗi thanh là một khoản bị trừ khỏi NMV, kèm tỷ lệ trên NMV</p></div>
+            <div class="recon" id="reconChip"></div>
+          </div>
+          <div id="waterfall"></div>
+        </div>
 
-        <div class="sec-h"><h2>Mục tiêu & kênh bán</h2></div>
+        <div class="sec-h"><h2>Chỉ số nổi bật</h2><span class="sec-sub">Tỷ lệ % luôn tính trên NMV. Mũi tên là thay đổi so với kỳ so sánh.</span></div>
+        <div class="mgrid" id="groups"></div>
+
         <div class="cards-2">
           <div class="card" id="targetCard"></div>
           <div class="card" id="channelCard"></div>
         </div>
       </section>
 
-      <!-- Sales -->
+      <!-- ===== Sales ===== -->
       <section id="sales" class="sec">
-        <div class="sec-h big"><h2>Doanh số</h2><span class="sec-sub">Theo ngày trong khoảng đang chọn và theo tháng trên toàn bộ dữ liệu</span></div>
+        <div class="sec-h big"><h2>Doanh số</h2><span class="sec-sub">Rê chuột (hoặc chạm) vào từng cột để xem đủ chỉ số của ngày, tháng đó</span></div>
         <div class="card">
-          <div class="card-h"><h3>Theo ngày</h3>
+          <div class="card-h">
+            <div><h3>Theo ngày</h3><p class="card-sub" id="dailyNote"></p></div>
             <div class="seg" id="dailyMetric"><button data-m="nmv" class="on">NMV</button><button data-m="gmv">GMV</button><button data-m="units">Sản phẩm</button><button data-m="orders">Đơn</button></div>
           </div>
           <div class="chart" id="dailyChart"></div>
@@ -128,77 +138,116 @@
         </div>
         <div class="cards-2">
           <div class="card">
-            <div class="card-h"><h3>Theo tháng</h3>
+            <div class="card-h">
+              <div><h3>Theo tháng</h3><p class="card-sub">Toàn bộ dữ liệu · bấm cột để xem tháng đó</p></div>
               <div class="seg" id="monthlyMetric"><button data-m="nmv" class="on">NMV</button><button data-m="gmv">GMV</button><button data-m="units">Sản phẩm</button></div>
             </div>
             <div class="chart" id="monthlyChart"></div>
+            <div class="legend" id="monthlyLegend"></div>
           </div>
           <div class="card">
-            <div class="card-h"><h3>Theo thứ trong tuần</h3><span class="muted sm">NMV</span></div>
+            <div class="card-h"><div><h3>Theo thứ trong tuần</h3><p class="card-sub">Trong khoảng đang chọn</p></div></div>
             <div class="chart" id="weekdayChart"></div>
+            <div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: NMV</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: số sản phẩm (trục phải)</span></div>
           </div>
         </div>
       </section>
 
-      <!-- Products -->
+      <!-- ===== Products & price ===== -->
       <section id="products" class="sec">
-        <div class="sec-h big"><h2>Sản phẩm</h2><span class="sec-sub">Phân loại, giá bán thực tế và tồn kho</span></div>
-        <div class="cards-2">
-          <div class="card"><div class="card-h"><h3>Top phân loại theo NMV</h3></div><div id="skuTable"></div></div>
-          <div class="card"><div class="card-h"><h3>Tồn kho</h3><span class="muted sm" id="stockNote"></span></div><div id="stockTable"></div></div>
-        </div>
+        <div class="sec-h big"><h2>Sản phẩm & giá</h2><span class="sec-sub">Giá nào khách mua nhiều, mỗi sản phẩm thực thu bao nhiêu</span></div>
         <div class="card">
-          <div class="card-h"><h3>Giá bán và thực thu mỗi sản phẩm</h3><span class="muted sm">Cột: số sản phẩm bán ở từng mức giá · Đường: tiền thực thu trung bình cho 1 sản phẩm</span></div>
+          <div class="card-h"><div><h3>Giá bán và thực thu mỗi sản phẩm</h3><p class="card-sub">Gom đơn theo giá bán thực tế (đã trừ giảm giá sản phẩm, chưa trừ voucher)</p></div></div>
           <div class="chart" id="priceChart"></div>
-          <div class="legend"><span><i style="background:var(--c-brand)"></i>Số sản phẩm bán</span><span><i style="background:var(--c-blue)"></i>Thực thu / sản phẩm (trục phải)</span></div>
-          <div class="tbl-scroll" id="priceTable" style="margin-top:12px"></div>
+          <div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: số sản phẩm bán ở mức giá đó (trục trái)</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>Đường: thực thu trung bình cho 1 sản phẩm (trục phải)</span></div>
+          <div class="tbl-scroll" id="priceTable"></div>
+          <dl class="mini-defs">
+            <div><dt>Thực thu / sp</dt><dd>(Giá bán − voucher shop − phí sàn) ÷ số sản phẩm. Đây là tiền shop thật sự giữ lại cho 1 sản phẩm.</dd></div>
+            <div><dt>Tỷ lệ thực thu</dt><dd>Thực thu ÷ giá bán. Ví dụ 71% nghĩa là bán 100.000 ₫ thì shop giữ lại 71.000 ₫.</dd></div>
+            <div><dt>Tỷ trọng số lượng</dt><dd>Số sản phẩm bán ở mức giá đó ÷ tổng số sản phẩm bán trong kỳ.</dd></div>
+          </dl>
+        </div>
+        <div class="cards-2">
+          <div class="card">
+            <div class="card-h"><div><h3>Số sản phẩm mỗi đơn</h3><p class="card-sub">Bao nhiêu % khách mua từ 2 sản phẩm trở lên</p></div></div>
+            <div class="multi-top" id="multiTop"></div>
+            <div class="chart" id="multiChart"></div>
+            <div class="legend"><span><i class="lg-bar" style="--c:var(--c-indigo)"></i>Cột: số đơn</span><span><i class="lg-line" style="--c:var(--c-brand)"></i>Đường: NMV (trục phải)</span></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div><h3>Phân loại & tồn kho</h3><p class="card-sub" id="stockNote"></p></div></div>
+            <div class="tbl-scroll" id="skuTable"></div>
+            <div class="tbl-scroll" id="stockTable"></div>
+          </div>
         </div>
       </section>
 
-      <!-- Region & time -->
+      <!-- ===== Customers & region ===== -->
       <section id="customers" class="sec">
-        <div class="sec-h big"><h2>Khu vực & khung giờ</h2><span class="sec-sub">Bấm vào một cột giờ để lọc toàn bộ dashboard theo giờ đó</span></div>
+        <div class="sec-h big"><h2>Khách hàng & khu vực</h2><span class="sec-sub">Bấm vào tỉnh/thành để xem phường/xã; bấm vào cột giờ để lọc cả dashboard</span></div>
         <div class="cards-2">
           <div class="card">
-            <div class="card-h"><h3>NMV theo miền</h3></div>
+            <div class="card-h"><div><h3>NMV theo miền</h3><p class="card-sub">Bấm một miền để lọc</p></div></div>
             <div class="donut-wrap"><div id="regionDonut"></div><div id="regionTable"></div></div>
           </div>
-          <div class="card"><div class="card-h"><h3>Top tỉnh, thành</h3></div><div id="provBars" class="hbars"></div></div>
+          <div class="card">
+            <div class="card-h"><div><h3>Tỉnh / thành phố</h3><p class="card-sub">Xếp theo NMV · bấm để xem phường/xã</p></div></div>
+            <div class="chart" id="provChart"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3 id="wardTitle">Phường / xã</h3><p class="card-sub" id="wardSub">Top phường/xã theo NMV</p></div><button class="link-btn" id="wardBack" hidden>Xem tất cả tỉnh</button></div>
+          <div class="chart" id="wardChart"></div>
         </div>
         <div class="cards-2">
           <div class="card">
-            <div class="card-h"><h3>Đơn vị vận chuyển</h3><span class="muted sm">Hàng cồng kềnh</span></div>
+            <div class="card-h"><div><h3>Khung giờ đặt hàng</h3><p class="card-sub">Bấm một cột để lọc theo giờ</p></div><button class="link-btn" id="clearHour" hidden>Bỏ lọc giờ</button></div>
+            <div class="chart" id="hourChart"></div>
+            <div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: NMV theo giờ đặt</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: số đơn (trục phải)</span></div>
+            <p class="foot-note" id="hourNote"></p>
+          </div>
+          <div class="card">
+            <div class="card-h"><div><h3>Đơn vị vận chuyển</h3><p class="card-sub">Hàng cồng kềnh · bấm để lọc</p></div></div>
             <div class="donut-wrap"><div id="carrierDonut"></div><div id="carrierTable"></div></div>
           </div>
-          <div class="card">
-            <div class="card-h"><h3>Khung giờ đặt hàng</h3><button class="link-btn" id="clearHour" hidden>Bỏ lọc giờ</button></div>
-            <div class="chart" id="hourChart"></div>
-            <p class="muted sm" id="hourNote"></p>
-          </div>
         </div>
       </section>
 
-      <!-- Ads -->
-      <section id="ads" class="sec">
-        <div class="sec-h big"><h2>Shopee Ads</h2><span class="sec-sub" id="adsSub">Dịch vụ Hiển thị Sản phẩm · đơn tính theo cách "gián tiếp" của Shopee</span></div>
-        <div class="cards-2">
-          <div class="card" id="walletCard"></div>
-          <div class="card"><div class="card-h"><h3>Sổ giao dịch tài khoản Ads</h3><span class="muted sm">Theo Kênh Người Bán · Tài khoản Dịch vụ Hiển thị</span></div><div class="tbl-scroll" id="ledgerTable"></div></div>
+      <!-- ===== Reviews ===== -->
+      <section id="reviews" class="sec">
+        <div class="sec-h big"><h2>Đánh giá của khách</h2><span class="sec-sub">Theo ngày khách đánh giá · nguồn: Quản lý Đánh Giá</span></div>
+        <div class="cards-2 reviews-top">
+          <div class="card" id="ratingCard"></div>
+          <div class="card" id="ratingStats"></div>
         </div>
+        <div class="card"><div class="card-h"><div><h3>Nhận xét gần đây</h3><p class="card-sub" id="reviewSub"></p></div></div><div class="review-list" id="reviewList"></div></div>
+      </section>
+
+      <!-- ===== Ads ===== -->
+      <section id="ads" class="sec">
+        <div class="sec-h big"><h2>Shopee Ads</h2><span class="sec-sub" id="adsSub"></span></div>
         <div class="tiles" id="adsTiles"></div>
         <div class="cards-2">
-          <div class="card"><div class="card-h"><h3>Phễu quảng cáo</h3></div><div id="funnel"></div></div>
-          <div class="card"><div class="card-h"><h3>Chi phí và doanh số Ads theo ngày</h3></div><div class="chart" id="adsChart"></div><div class="legend"><span><i style="background:var(--c-ads)"></i>Chi phí</span><span><i style="background:var(--c-brand)"></i>Doanh số Ads</span></div></div>
+          <div class="card" id="walletCard"></div>
+          <div class="card"><div class="card-h"><div><h3>Sổ giao dịch tài khoản Ads</h3><p class="card-sub">Tiền vào (nạp, tặng) và tiền bị trừ khi chạy quảng cáo</p></div></div><div class="tbl-scroll" id="ledgerTable"></div></div>
         </div>
-        <div class="card"><div class="card-h"><h3>Chi tiết theo ngày</h3></div><div class="tbl-scroll" id="adsTable"></div></div>
+        <div class="card">
+          <div class="card-h"><div><h3>Chi phí và doanh số Ads theo ngày</h3><p class="card-sub">Rê vào từng ngày để xem lượt xem, click, đơn, ROAS</p></div></div>
+          <div class="chart" id="adsChart"></div>
+          <div class="legend"><span><i class="lg-bar" style="--c:var(--c-good)"></i>Cột xanh: chi phí trả bằng tiền Shopee tặng</span><span><i class="lg-bar" style="--c:var(--c-blue)"></i>Cột xanh dương: chi phí trả bằng tiền LF nạp</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: doanh số từ Ads (trục phải)</span></div>
+        </div>
+        <div class="cards-2">
+          <div class="card"><div class="card-h"><div><h3>Phễu quảng cáo</h3><p class="card-sub">Tỷ lệ chuyển từ bước trước sang bước sau</p></div></div><div id="funnel"></div></div>
+          <div class="card"><div class="card-h"><div><h3>Chi tiết theo ngày</h3></div></div><div class="tbl-scroll" id="adsTable"></div></div>
+        </div>
       </section>
 
-      <!-- Orders -->
+      <!-- ===== Orders ===== -->
       <section id="orders" class="sec">
         <div class="sec-h big"><h2>Đơn hàng</h2><span class="sec-sub" id="ordersSub"></span></div>
         <div class="card">
           <div class="orders-tools">
-            <input type="search" id="orderSearch" placeholder="Tìm mã đơn, tỉnh, SKU…" aria-label="Tìm đơn">
+            <input type="search" id="orderSearch" placeholder="Tìm mã đơn, phường, tỉnh, SKU…" aria-label="Tìm đơn">
             <div class="seg" id="statusSeg"><button data-s="" class="on">Tất cả</button><button data-s="wait">Chờ xử lý</button><button data-s="ship">Đang giao</button><button data-s="ok">Đã giao</button><button data-s="cx">Đã hủy</button></div>
           </div>
           <div class="tbl-scroll" id="ordersTable"></div>
@@ -209,15 +258,14 @@
       <section class="sec defs">
         <div class="sec-h"><h2>Cách tính</h2></div>
         <dl class="def-grid">
-          <div><dt>NMV</dt><dd>Giá shop bán (giá sau giảm giá sản phẩm, trước voucher) × số lượng, tính trên đơn không bị hủy: Chờ xác nhận, Chờ lấy hàng, Đang giao, Đã giao.</dd></div>
-          <div><dt>GMV</dt><dd>Giá bán × số lượng của mọi đơn, kể cả đơn hủy.</dd></div>
-          <div><dt>Phí sàn</dt><dd>Phí cố định + Phí dịch vụ + Phí xử lý giao dịch + PiShip, lấy từ chi tiết doanh thu từng đơn. Đơn chưa hoàn tất dùng số Shopee ước tính.</dd></div>
-          <div><dt>Mkt fee</dt><dd>Ads LF nạp tiền + voucher của shop. Ads chạy bằng tiền Shopee tặng (nhiệm vụ) không tốn tiền nên không trừ. Giảm giá so với giá niêm yết đã nằm trong giá bán nên không trừ thêm.</dd></div>
-          <div><dt>NMV thực nhận</dt><dd>NMV − phí sàn − voucher shop − Ads LF nạp tiền. Mọi tỷ lệ % trên dashboard đều chia cho NMV.</dd></div>
-          <div><dt>Thực thu / sản phẩm</dt><dd>(Giá bán − voucher shop − phí sàn) ÷ số lượng. Không tính phí ship khách trả mà Shopee chuyển kèm.</dd></div>
-          <div><dt>Ads LF nạp / Shopee tặng</dt><dd>Theo sổ giao dịch tài khoản Ads: mỗi ngày Shopee trừ tiền tặng trước, hết mới trừ tiền nạp.</dd></div>
+          <div><dt>NMV</dt><dd>Giá shop bán (giá sau giảm giá sản phẩm, trước voucher) × số lượng, chỉ tính đơn không bị hủy: Chờ xác nhận, Chờ lấy hàng, Đang giao, Đã giao.</dd></div>
+          <div><dt>GMV</dt><dd>Như NMV nhưng tính cả đơn hủy.</dd></div>
+          <div><dt>Phí sàn</dt><dd>Phí cố định + Phí dịch vụ + Phí xử lý giao dịch + Phí dịch vụ PiShip, đọc từ "chi tiết doanh thu" của từng đơn. Đơn chưa hoàn tất dùng số Shopee ước tính; Shopee có thể chỉnh lại khi đơn được giao.</dd></div>
+          <div><dt>NMV thực nhận</dt><dd>NMV − phí sàn − voucher shop − Ads LF nạp tiền. Tất cả tỷ lệ % trên dashboard đều chia cho NMV.</dd></div>
+          <div><dt>Ads LF nạp / Ads Shopee tặng</dt><dd>Theo sổ giao dịch tài khoản Ads: mỗi ngày Shopee trừ tiền tặng (nhiệm vụ) trước, hết mới trừ tiền LF nạp. Chỉ phần LF nạp mới tính là chi phí.</dd></div>
+          <div><dt>Phí vận chuyển</dt><dd>Hàng cồng kềnh: Shopee trợ giá phần lớn phí ship, khách trả phần còn lại. Phần ship này đi qua và không phải chi phí của shop, nên không nằm trong thực thu.</dd></div>
         </dl>
-        <p class="muted sm">Nguồn: Kênh Người Bán Shopee. Giờ theo GMT+7. Dữ liệu tự cập nhật lúc 16:00 mỗi ngày.</p>
+        <p class="foot-note">Nguồn: Kênh Người Bán Shopee. Giờ theo GMT+7. Dữ liệu tự cập nhật lúc 16:00 mỗi ngày.</p>
       </section>
     </div>
   </div>
@@ -225,14 +273,14 @@
   <nav class="tabbar glass only-mobile" aria-label="Điều hướng">
     <a href="#overview" data-nav="overview" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="15" width="7" height="6" rx="2"/></svg><span>Tổng quan</span></a>
     <a href="#sales" data-nav="sales"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Doanh số</span></a>
+    <a href="#customers" data-nav="customers"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Khách</span></a>
     <a href="#ads" data-nav="ads"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6"/></svg><span>Ads</span></a>
-    <a href="#orders" data-nav="orders"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Đơn</span></a>
     <button id="tabFilters"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span>Bộ lọc</span></button>
   </nav>
   <div class="scrim" id="scrim" hidden></div>
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js"></script>
+<script src="assets/app.js?v=4"></script>
 </body>
 </html>

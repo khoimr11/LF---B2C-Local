@@ -9,7 +9,7 @@
 //   LF_KEY=<hex> node scripts/data-tool.mjs summary                          print a short summary
 //   LF_KEY=<hex> node scripts/data-tool.mjs export <out.json>                write the decrypted data (do not commit it)
 //
-// collected.json = { orders:[row...], ads:[row...], products:[row...], ledger:[row...] }  (rows exactly as scripts/collector.js emits)
+// collected.json = { orders:[row...], ads:[row...], products:[row...], ledger:[row...], reviews:[row...] }  (rows exactly as scripts/collector.js emits)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { webcrypto as C } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -49,7 +49,7 @@ function merge(data, add) {
     if (!old) { bySn.set(r[0], r); added++; continue; }
     const m = r.slice();
     for (let i = 11; i <= 17; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
-    for (let i = 18; i <= 20; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
+    for (let i = 18; i <= 26; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
     bySn.set(r[0], m); updated++;
   }
   data.orders = [...bySn.values()].sort((a, b) => b[1] - a[1]);
@@ -57,6 +57,11 @@ function merge(data, add) {
   for (const r of add.ads || []) byDay.set(r[0], r);
   data.ads = [...byDay.values()].sort((a, b) => a[0] - b[0]);
   if (add.products && add.products.length) data.products = add.products;
+  if (add.reviews && add.reviews.length) { // key by order + review time; newest copy wins (reply status changes)
+    const rk = r => r[4] + '|' + r[0], m = new Map((data.reviews || []).map(r => [rk(r), r]));
+    for (const r of add.reviews) m.set(rk(r), r);
+    data.reviews = [...m.values()].sort((a, b) => b[0] - a[0]);
+  }
   if (add.ledger && add.ledger.length) { // replace the window the collector covered, keep older history
     const from = Math.min(...add.ledger.map(r => r[0]));
     data.ledger = (data.ledger || []).filter(r => r[0] < from).concat(add.ledger).sort((a, b) => a[0] - b[0]);
