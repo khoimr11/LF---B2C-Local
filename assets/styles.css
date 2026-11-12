@@ -236,8 +236,8 @@ td, .kpi-v, .tile-v, .mr-v, .mh-v, .wf-v, .bl-v, .chart text { font-variant-nume
 .quad div { background: var(--card-2); border-radius: 10px; padding: 8px 9px; display: grid; min-width: 0; }
 .quad b { font-size: 15px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .quad span { font-size: 11px; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mrows { display: grid; }
-.mr { display: grid; grid-template-columns: minmax(0, 1fr) 104px 50px 62px; gap: 8px; align-items: center; padding: 7px 0; border-top: .5px solid var(--sep); font-size: 13px; }
+.mrows { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; column-gap: 10px; }
+.mr { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; gap: 8px; align-items: center; padding: 7px 0; border-top: .5px solid var(--sep); font-size: 13px; }
 .mr-k { color: var(--label-2); min-width: 0; }
 .mr-v { font-weight: 600; text-align: right; white-space: nowrap; }
 .mr-p { justify-self: end; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: var(--fill-2); color: var(--label-2); white-space: nowrap; }
@@ -403,8 +403,6 @@ table.mt { margin-top: 14px; }
 .sh em { font-style: normal; font-size: 11.5px; color: var(--label-2); }
 .sh.paid { background: var(--blue-bg); } .sh.paid span { color: var(--c-blue); }
 .sh.free { background: var(--good-bg); } .sh.free span { color: var(--c-good); }
-.mr:has(> span:nth-child(3):empty) { grid-template-columns: minmax(0, 1fr) auto; }
-.mr:has(> span:nth-child(3):empty) > span:nth-child(n+3) { display: none; }
 .funnel { display: grid; gap: 10px; }
 .fn { display: grid; grid-template-columns: 104px minmax(0, 1fr) 70px; gap: 4px 10px; align-items: center; padding: 2px 6px; border-radius: 10px; }
 .fn:hover, .fn.hov { background: var(--fill-2); }
@@ -501,7 +499,7 @@ td.up { color: var(--c-good); font-weight: 600; }
   .wf-track { grid-column: 1 / -1; grid-row: 2; height: 14px; }
   .wf-l span { display: none; }
   .wf-v { display: flex; gap: 8px; align-items: baseline; }
-  .mr { grid-template-columns: minmax(0, 1fr) 96px 46px 56px; gap: 6px; font-size: 12.5px; }
+  .mr { font-size: 12.5px; }
   .quad { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .multi-top { grid-template-columns: 1fr 1fr; }
   .multi-top .big-stat:first-child { grid-column: 1 / -1; }
