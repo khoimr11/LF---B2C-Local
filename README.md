@@ -33,9 +33,10 @@ Tác vụ lịch của Claude chạy mỗi ngày trước 16:00 (giờ Việt Na
 
 ## Định nghĩa chỉ số
 
-- **NMV**: giá bán × số lượng của đơn không bị hủy (Chờ xác nhận, Chờ lấy hàng, Đang giao, Đã giao).
+- **NMV**: giá shop bán (sau giảm giá sản phẩm, trước voucher) × số lượng của đơn không bị hủy (Chờ xác nhận, Chờ lấy hàng, Đang giao, Đã giao). Mọi tỷ lệ % đều chia cho NMV.
 - **GMV**: giá bán × số lượng của mọi đơn, kể cả đơn hủy.
 - **Phí sàn**: phí cố định + phí dịch vụ + phí xử lý giao dịch + PiShip (theo chi tiết doanh thu từng đơn).
-- **Mkt fee**: chi phí Ads + voucher shop.
-- **NMV thực nhận**: NMV − phí sàn − Mkt fee.
-- **Tiền về dự kiến**: tổng "Doanh thu đơn hàng ước tính" của Shopee − chi phí Ads.
+- **Ads LF nạp / Ads Shopee tặng**: tách theo sổ giao dịch tài khoản Ads (mỗi ngày trừ tiền tặng trước, hết mới trừ tiền nạp). Chỉ Ads LF nạp mới tính là chi phí.
+- **Mkt fee**: Ads LF nạp tiền + voucher shop.
+- **NMV thực nhận**: NMV − phí sàn − voucher shop − Ads LF nạp tiền.
+- **Thực thu / sản phẩm**: (giá bán − voucher shop − phí sàn) ÷ số lượng, không tính phí ship khách trả mà Shopee chuyển kèm.

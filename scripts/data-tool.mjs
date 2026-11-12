@@ -9,7 +9,7 @@
 //   LF_KEY=<hex> node scripts/data-tool.mjs summary                          print a short summary
 //   LF_KEY=<hex> node scripts/data-tool.mjs export <out.json>                write the decrypted data (do not commit it)
 //
-// collected.json = { orders:[row...], ads:[row...], products:[row...] }  (rows exactly as scripts/collector.js emits)
+// collected.json = { orders:[row...], ads:[row...], products:[row...], ledger:[row...] }  (rows exactly as scripts/collector.js emits)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { webcrypto as C } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -57,6 +57,10 @@ function merge(data, add) {
   for (const r of add.ads || []) byDay.set(r[0], r);
   data.ads = [...byDay.values()].sort((a, b) => a[0] - b[0]);
   if (add.products && add.products.length) data.products = add.products;
+  if (add.ledger && add.ledger.length) { // replace the window the collector covered, keep older history
+    const from = Math.min(...add.ledger.map(r => r[0]));
+    data.ledger = (data.ledger || []).filter(r => r[0] < from).concat(add.ledger).sort((a, b) => a[0] - b[0]);
+  }
   data.meta = { ...(data.meta || {}), at: now() };
   return { added, updated };
 }

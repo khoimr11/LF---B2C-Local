@@ -67,7 +67,7 @@ async function fetchEnc() {
 }
 
 /* ---------------- state ---------------- */
-let DATA = null, ORDERS = [], ADS = [], PRODUCTS = [], LIST = {};
+let DATA = null, ORDERS = [], ADS = [], PRODUCTS = [], LIST = {}, LEDGER = [], ADSPLIT = {}, WALLET = { paidIn: 0, freeIn: 0, paidUsed: 0, freeUsed: 0 };
 const S = { from: 0, to: 0, preset: '30', cmp: 'prev', sku: '', region: '', carrier: '', hour: null,
   dailyMetric: 'nmv', monthlyMetric: 'nmv', q: '', status: '', sort: 't', dir: -1, page: 0 };
 
@@ -82,9 +82,28 @@ function prepare(d) {
     o.cls = o.cx ? 'cx' : /trả hàng|hoàn tiền/i.test(o.s) ? 'cx' : /^Đã giao$|hoàn thành/i.test(o.s) ? 'ok' : /ĐVVC|đang giao|vận chuyển/i.test(o.s) ? 'ship' : 'wait';
     const lp = (LIST[o.sku] || {}).list || 0; o.promo = lp > o.p ? (lp - o.p) * o.q : 0;
     o.fee = o.fx + o.sv + o.tx + o.pi;
-    o.income = o.inc != null ? o.inc : Math.max(0, o.v - o.fee - o.sh);
+    o.prodNet = o.v - o.sh - o.fee;                       // thực thu từ sản phẩm (không gồm tiền ship khách trả)
+    o.income = o.inc != null ? o.inc : o.prodNet;         // số Shopee chuyển (có thể gồm phí ship khách trả)
+    o.shipNet = o.income - o.prodNet;
     return o;
   }).sort((a, b) => b.t - a.t);
+  // Sổ giao dịch tài khoản Ads: tách tiền LF nạp và tiền Shopee tặng.
+  // Mỗi ngày: cộng tiền vào trước, khấu trừ dùng tiền tặng trước rồi mới tới tiền nạp.
+  LEDGER = (d.ledger || []).map(r => ({ day: dayKey(r[0]), kind: r[1], amt: r[2] || 0, type: r[3] || '', from: r[4] || '' })).sort((a, b) => a.day - b.day || (a.kind === 'spend') - (b.kind === 'spend'));
+  ADSPLIT = {}; WALLET = { paidIn: 0, freeIn: 0, paidUsed: 0, freeUsed: 0 };
+  let freeBal = 0, paidBal = 0;
+  LEDGER.forEach(e => {
+    if (e.kind === 'free') { freeBal += e.amt; WALLET.freeIn += e.amt; }
+    else if (e.kind === 'paid') { paidBal += e.amt; WALLET.paidIn += e.amt; }
+    else if (e.kind === 'spend') {
+      let f = Math.min(e.amt, Math.max(0, freeBal)), p = e.amt - f;
+      if (p > 0 && p < 5 && paidBal < 5) { f += p; p = 0; } // sai số làm tròn của Shopee (số lẻ), không phải tiền nạp
+      freeBal -= f; paidBal -= p;
+      WALLET.freeUsed += f; WALLET.paidUsed += p;
+      const x = ADSPLIT[e.day] || (ADSPLIT[e.day] = { free: 0, paid: 0 }); x.free += f; x.paid += p;
+    }
+  });
+  WALLET.freeBal = freeBal; WALLET.paidBal = paidBal; WALLET.hasLedger = LEDGER.length > 0;
   ADS = (d.ads || []).map(r => ({ day: dayKey(r[0]), imp: r[1] || 0, clk: r[2] || 0, cost: r[3] || 0, ord: r[4] || 0, gmv: r[5] || 0, dord: r[6] || 0, dgmv: r[7] || 0, atc: r[8] || 0, units: r[9] || 0 })).sort((a, b) => a.day - b.day);
 }
 
@@ -122,17 +141,22 @@ function filterOrders(a, b, opts = {}) {
     (!S.carrier || o.car === S.carrier) && (opts.ignoreHour || S.hour === null || o.hour === S.hour));
 }
 const adsIn = (a, b) => ADS.filter(r => r.day >= a && r.day <= b);
+// Chia chi phí Ads mỗi ngày theo nguồn tiền; ngày không có sổ giao dịch thì coi là tiền LF nạp.
+function splitDay(r) { const x = ADSPLIT[r.day]; if (!x || !(x.free + x.paid)) return { free: 0, paid: r.cost }; const fr = x.free / (x.free + x.paid); return { free: r.cost * fr, paid: r.cost * (1 - fr) }; }
 function agg(a, b) {
   const os = filterOrders(a, b), ok = os.filter(o => !o.cx), sum = (arr, f) => arr.reduce((s, o) => s + f(o), 0);
   const ads = adsIn(a, b);
   const A = ads.reduce((t, r) => { for (const k in t) t[k] += r[k]; return t; }, { imp: 0, clk: 0, cost: 0, ord: 0, gmv: 0, atc: 0, units: 0, dord: 0, dgmv: 0 });
   const nmv = sum(ok, o => o.v), units = sum(ok, o => o.q), fee = sum(ok, o => o.fee), sh = sum(ok, o => o.sh), promo = sum(ok, o => o.promo);
-  const mkt = A.cost + sh;
+  const adsFree = ads.reduce((s, r) => s + splitDay(r).free, 0), adsPaid = A.cost - adsFree;
+  const mkt = adsPaid + sh;
   const adsUnits = Math.min(A.units || A.ord, units);
   const res = {
     a, b, days: b - a + 1, os, ok, ads, A, nmv, gmv: sum(os, o => o.v), units, orders: ok.length, aov: ok.length ? nmv / ok.length : 0, asp: units ? nmv / units : 0,
     fx: sum(ok, o => o.fx), sv: sum(ok, o => o.sv), tx: sum(ok, o => o.tx), pi: sum(ok, o => o.pi), fee, sh, pv: sum(ok, o => o.pv), promo,
-    income: sum(ok, o => o.income), mkt, net: nmv - fee - mkt, payout: sum(ok, o => o.income) - A.cost,
+    income: sum(ok, o => o.income), prodNet: sum(ok, o => o.prodNet), shipNet: sum(ok, o => o.shipNet), adsFree, adsPaid,
+    mkt, net: nmv - fee - mkt, payout: sum(ok, o => o.income) - adsPaid,
+    fxBase: sum(ok.filter(o => o.fx > 0), o => o.v - o.sh), fxPos: sum(ok.filter(o => o.fx > 0), o => o.fx), fxFreeN: ok.filter(o => o.fx === 0 && o.fee > 0).length,
     cxN: os.filter(o => o.cx).length, retN: ok.filter(o => o.ret).length, totalN: os.length,
     waitN: ok.filter(o => o.cls === 'wait').length, shipN: ok.filter(o => o.cls === 'ship').length, doneN: ok.filter(o => o.cls === 'ok').length,
     adsUnits, organicUnits: Math.max(0, units - adsUnits)
@@ -248,10 +272,10 @@ function renderBiz() {
   const k = (l, v, d, foot, cls = '', sparkHtml = '') => `<div class="kpi ${cls}"><div class="kpi-l">${l}</div><div class="kpi-v">${v}</div>${sparkHtml}<div class="kpi-f">${badge(d)}<span>${foot}</span></div></div>`;
   const vv = v => `${short(v).replace(/ (tr|tỷ|k)$/, '<small> $1</small>')}<small> ₫</small>`;
   $('#biz').innerHTML =
-    k('NMV thực nhận', vv(C.net), P && delta(C.net, P.net), `NMV ${short(C.nmv)} ₫ sau phí sàn và Mkt fee`, 'lead', C.days > 1 ? spark(sp(o => o.v), '#ffffff') : '') +
-    k('NMV', vv(C.nmv), P && delta(C.nmv, P.nmv), `${C.orders} đơn · ${C.units} sản phẩm`, '', C.days > 1 ? spark(sp(o => o.v), 'var(--c-brand)') : '') +
-    k('Chi phí sàn Shopee', vv(C.fee), P && delta(C.fee, P.fee, true), 'Take rate ' + pct(C.take), '', C.days > 1 ? spark(sp(o => o.fee), 'var(--c-ads)') : '') +
-    k('Tiền về dự kiến', vv(C.payout), P && delta(C.payout, P.payout), 'Shopee chuyển, đã trừ Ads', '', C.days > 1 ? spark(sp(o => o.income), 'var(--c-blue)') : '');
+    k('NMV thực nhận', vv(C.net), P && delta(C.net, P.net), `${pct(C.net / C.nmv)} NMV · đã trừ phí sàn, voucher shop, Ads LF trả`, 'lead', C.days > 1 ? spark(sp(o => o.prodNet), '#ffffff') : '') +
+    k('NMV', vv(C.nmv), P && delta(C.nmv, P.nmv), `Giá shop bán · ${C.orders} đơn · ${C.units} sản phẩm`, '', C.days > 1 ? spark(sp(o => o.v), 'var(--c-brand)') : '') +
+    k('Chi phí sàn Shopee', vv(C.fee), P && delta(C.fee, P.fee, true), pct(C.take) + ' NMV (take rate)', '', C.days > 1 ? spark(sp(o => o.fee), 'var(--c-ads)') : '') +
+    k('Thực thu / sản phẩm', vv(C.units ? C.prodNet / C.units : 0), P && delta(C.units ? C.prodNet / C.units : 0, P.units ? P.prodNet / P.units : 0), `Giá bán TB ${short(C.asp)} ₫ · giữ lại ${pct(C.prodNet / C.nmv)}`, '', C.days > 1 ? spark(sp(o => o.prodNet), 'var(--c-blue)') : '');
 }
 
 function renderGroups() {
@@ -264,10 +288,11 @@ function renderGroups() {
   }).join('') || r('Chưa có đơn', '–', null);
   const G = [
     ['Hiệu suất tổng quan', '--c-brand', [r('NMV', money(C.nmv), D(x => x.nmv)), r('GMV (gồm đơn hủy)', money(C.gmv), D(x => x.gmv)), r('Sản phẩm bán ra', full(C.units), D(x => x.units)), r('Số đơn hợp lệ', full(C.orders), D(x => x.orders)), r('AOV (giá trị/đơn)', money(C.aov), D(x => x.aov)), r('Giá bán TB/sản phẩm', money(C.asp), D(x => x.asp))]],
-    ['Chi phí sàn Shopee', '--c-ads', [r('Phí cố định', money(C.fx), D(x => x.fx, 1)), r('% NMV', pct(C.fx / n), PT(x => x.fx / x.nmv, 1), 'sub'), r('Phí dịch vụ', money(C.sv), D(x => x.sv, 1)), r('% NMV', pct(C.sv / n), PT(x => x.sv / x.nmv, 1), 'sub'), r('Phí xử lý giao dịch', money(C.tx), D(x => x.tx, 1)), r('% NMV', pct(C.tx / n), PT(x => x.tx / x.nmv, 1), 'sub'), r('Phí PiShip', money(C.pi), D(x => x.pi, 1)), r('Tổng phí sàn · ' + pct(C.take), money(C.fee), D(x => x.fee, 1), 'total')]],
+    ['Chi phí sàn Shopee', '--c-ads', [r('Phí cố định', money(C.fx), D(x => x.fx, 1)), r('% NMV', pct(C.fx / n), PT(x => x.fx / x.nmv, 1), 'sub'), r('Phí dịch vụ', money(C.sv), D(x => x.sv, 1)), r('% NMV', pct(C.sv / n), PT(x => x.sv / x.nmv, 1), 'sub'), r('Phí xử lý giao dịch', money(C.tx), D(x => x.tx, 1)), r('% NMV', pct(C.tx / n), PT(x => x.tx / x.nmv, 1), 'sub'), r('Phí dịch vụ PiShip', money(C.pi), D(x => x.pi, 1)), r('% NMV', pct(C.pi / n), PT(x => x.pi / x.nmv, 1), 'sub'), r('Tổng phí sàn', money(C.fee), D(x => x.fee, 1), 'total'), r('% NMV', pct(C.take), PT(x => x.take, 1), 'sub'),
+      C.fxFreeN ? `<p class="note">${C.fxFreeN} đơn được Shopee miễn phí cố định nên tỷ lệ chung thấp hơn. Ở các đơn có thu, phí cố định ≈ ${pct(C.fxPos / C.fxBase)} trên giá bán sau voucher shop.</p>` : '']],
     ['Sức khỏe đơn hàng', '--c-bad', [r('Đơn hủy', full(C.cxN) + ' đơn', D(x => x.cxN, 1)), r('% đơn hủy', pct(C.cxRate), PT(x => x.cxRate, 1), 'sub'), r('Đơn trả hàng/hoàn tiền', full(C.retN) + ' đơn', D(x => x.retN, 1)), r('% trả hàng', pct(C.retRate), PT(x => x.retRate, 1), 'sub'), r('Chờ xử lý', full(C.waitN) + ' đơn', null), r('Đang giao', full(C.shipN) + ' đơn', null), r('Đã giao', full(C.doneN) + ' đơn', null)]],
     ['Khuyến mãi', '--c-indigo', [r('Giảm giá shop (so giá niêm yết)', money(C.promo), D(x => x.promo, 1)), r('% NMV', pct(C.promo / n), PT(x => x.promo / x.nmv, 1), 'sub'), r('Voucher shop', money(C.sh), D(x => x.sh, 1)), r('% NMV', pct(C.sh / n), PT(x => x.sh / x.nmv, 1), 'sub'), r('Voucher Shopee (sàn trả)', money(C.pv), D(x => x.pv)), r('% NMV', pct(C.pv / n), PT(x => x.pv / x.nmv), 'sub'), r('Tổng trợ giá', money(C.promo + C.sh + C.pv), D(x => x.promo + x.sh + x.pv), 'total')]],
-    ['Marketing & Ads', '--c-blue', [r('Chi phí Ads', money(C.A.cost), D(x => x.A.cost, 1)), r('% Ads / NMV', pct(C.A.cost / n), PT(x => x.A.cost / x.nmv, 1), 'sub'), r('Mkt fee (Ads + voucher shop)', money(C.mkt), D(x => x.mkt, 1)), r('% Mkt fee / NMV', pct(C.mkt / n), PT(x => x.mkt / x.nmv, 1), 'sub'), r('Sản phẩm bán qua Ads', full(C.adsUnits), D(x => x.adsUnits)), r('Sản phẩm tự nhiên', full(C.organicUnits), D(x => x.organicUnits)), r('% bán qua Ads', pct(C.adsUnits / C.units), PT(x => x.adsUnits / x.units))]],
+    ['Marketing & Ads', '--c-blue', [r('Ads LF nạp tiền', money(C.adsPaid), D(x => x.adsPaid, 1)), r('% NMV', pct(C.adsPaid / n), PT(x => x.adsPaid / x.nmv, 1), 'sub'), r('Ads Shopee tặng (nhiệm vụ)', money(C.adsFree), D(x => x.adsFree)), r('% NMV · không tính chi phí', pct(C.adsFree / n), null, 'sub'), r('Mkt fee (Ads LF trả + voucher shop)', money(C.mkt), D(x => x.mkt, 1)), r('% NMV', pct(C.mkt / n), PT(x => x.mkt / x.nmv, 1), 'sub'), r('Sản phẩm bán qua Ads', full(C.adsUnits), D(x => x.adsUnits)), r('Sản phẩm tự nhiên', full(C.organicUnits), D(x => x.organicUnits))]],
     ['Đơn vị vận chuyển', '--c-teal', [carrierRows]]
   ];
   $('#groups').innerHTML = G.map(([t, c, rows]) => `<div class="card grp"><div class="card-h"><h3><i style="--c:var(${c})"></i>${t}</h3></div><div class="rows">${rows.join('')}</div></div>`).join('');
@@ -341,8 +366,16 @@ function renderStock() {
       return `<tr><td><b>${esc(p[4])}</b> <span class="muted">${esc(p[3])}</span></td><td class="r">${short(p[5])} ₫</td><td class="r">${p[6] ? short(p[6]) + ' ₫' : '–'}</td><td class="r">${p[7] ?? '–'}</td><td class="r">${sold ? num2(sold) : '0'}</td><td class="r">${st}</td></tr>`; }).join('') + '</tbody></table></div>';
 }
 function renderPrice() {
-  const rows = groupSum(C.ok, o => o.p, o => o.q).sort((a, b) => b[1] - a[1]).map(([p, q]) => { const lp = (LIST[C.ok.find(o => o.p === +p)?.sku] || {}).list; return { l: full(p) + ' ₫', v: q, extra: lp && lp > p ? 'giảm ' + pct(1 - p / lp, 0) + ' so giá niêm yết' : '' }; });
-  hbars($('#priceBars'), rows, 'var(--c-brand)', v => v + ' sp');
+  const by = new Map(); C.ok.forEach(o => { const x = by.get(o.p) || { p: o.p, q: 0, n: 0, v: 0, net: 0, fee: 0, sh: 0, sku: o.sku }; x.q += o.q; x.n++; x.v += o.v; x.net += o.prodNet; x.fee += o.fee; x.sh += o.sh; by.set(o.p, x); });
+  const rows = [...by.values()].sort((a, b) => a.p - b.p);
+  if (!rows.length) { $('#priceChart').innerHTML = '<p class="empty-note">Chưa có đơn trong khoảng này.</p>'; $('#priceTable').innerHTML = ''; return; }
+  const top = rows.reduce((m, r) => (r.q > m.q ? r : m), rows[0]);
+  barChart($('#priceChart'), { labels: rows.map(r => full(r.p)), bars: rows.map(r => r.q), line: rows.map(r => r.net / r.q), fmt: v => full(v), fmtLine: short, lineColor: 'var(--c-blue)', height: 240, everyLabel: 1,
+    tipFn: i => { const r = rows[i]; return `<b>Giá bán ${full(r.p)} ₫</b>${r.q} sản phẩm · ${r.n} đơn<br>Thực thu TB: ${full(r.net / r.q)} ₫/sp (${pct(r.net / r.v)})<br>Phí sàn TB: ${full(r.fee / r.q)} ₫ · Voucher shop TB: ${full(r.sh / r.q)} ₫`; } });
+  const tq = C.units || 1;
+  $('#priceTable').innerHTML = `<table><thead><tr><th>Giá bán</th><th class="r">Sản phẩm</th><th class="r">Thực thu/sp</th><th class="r">% giữ lại</th><th class="r">% sản phẩm</th><th class="r">Đơn</th><th class="r">Voucher shop/sp</th><th class="r">Phí sàn/sp</th><th class="r">Giảm so niêm yết</th></tr></thead><tbody>` +
+    rows.map(r => { const lp = (LIST[r.sku] || {}).list; return `<tr${r === top ? ' style="font-weight:600"' : ''}><td>${full(r.p)} ₫${r === top ? ' <span class="pill free">mua nhiều nhất</span>' : ''}</td><td class="r">${r.q}</td><td class="r"><b>${full(r.net / r.q)} ₫</b></td><td class="r">${pct(r.net / r.v)}</td><td class="r">${pct(r.q / tq, 0)}</td><td class="r">${r.n}</td><td class="r">${full(r.sh / r.q)}</td><td class="r">${full(r.fee / r.q)}</td><td class="r">${lp && lp > r.p ? pct(1 - r.p / lp, 0) : '–'}</td></tr>`; }).join('') +
+    `<tr class="total"><td><b>Tổng / bình quân</b></td><td class="r"><b>${C.units}</b></td><td class="r"><b>${full(C.prodNet / tq)} ₫</b></td><td class="r">${pct(C.prodNet / C.nmv)}</td><td class="r">100%</td><td class="r">${C.orders}</td><td class="r">${full(C.sh / tq)}</td><td class="r">${full(C.fee / tq)}</td><td></td></tr></tbody></table>`;
 }
 
 function renderRegion() {
@@ -381,8 +414,9 @@ function renderAds() {
   $('#adsSub').textContent = 'Dịch vụ Hiển thị Sản phẩm · đơn tính "gián tiếp" theo Shopee' + (filtered ? ' · Ads không tách được theo bộ lọc SKU, khu vực, giờ' : '');
   const roas = A.cost ? A.gmv / A.cost : NaN, proas = PA && PA.cost ? PA.gmv / PA.cost : NaN;
   const t = (l, v, d) => `<div class="tile"><span class="tile-l">${l}</span><span class="tile-v">${v}</span>${badge(d)}</div>`;
+  renderWallet();
   const D = (c, p, inv) => PA ? delta(c, p, inv) : null;
-  $('#adsTiles').innerHTML = t('Chi phí Ads', short(A.cost) + ' ₫', D(A.cost, PA?.cost, 1)) + t('Doanh số từ Ads', short(A.gmv) + ' ₫', D(A.gmv, PA?.gmv)) + t('ROAS', num2(roas), PA ? delta(roas, proas) : null) +
+  $('#adsTiles').innerHTML = t('Ads LF nạp tiền', full(C.adsPaid) + ' ₫', P ? delta(C.adsPaid, P.adsPaid, 1) : null) + t('Ads Shopee tặng', full(C.adsFree) + ' ₫', P ? delta(C.adsFree, P.adsFree) : null) + t('Tổng chi phí Ads chạy', short(A.cost) + ' ₫', D(A.cost, PA?.cost, 1)) + t('Doanh số từ Ads', short(A.gmv) + ' ₫', D(A.gmv, PA?.gmv)) + t('ROAS', num2(roas), PA ? delta(roas, proas) : null) +
     t('ACOS', pct(A.cost / A.gmv), PA ? ptDelta(A.cost / A.gmv, PA.cost / PA.gmv, 1) : null) + t('% Ads / NMV', pct(A.cost / C.nmv), P ? ptDelta(A.cost / C.nmv, PA.cost / P.nmv, 1) : null) +
     t('Lượt xem', full(A.imp), D(A.imp, PA?.imp)) + t('Lượt click', full(A.clk), D(A.clk, PA?.clk)) + t('CTR', pct(A.clk / A.imp, 2), PA ? ptDelta(A.clk / A.imp, PA.clk / PA.imp) : null) +
     t('CPC', A.clk ? full(A.cost / A.clk) + ' ₫' : '–', PA ? delta(A.cost / A.clk, PA.cost / PA.clk, 1) : null) + t('Tỉ lệ chuyển đổi', pct(A.ord / A.clk, 2), PA ? ptDelta(A.ord / A.clk, PA.ord / PA.clk) : null);
@@ -406,11 +440,30 @@ function renderAds() {
     : '<p class="empty-note">Không có ngày nào chạy Ads trong khoảng này.</p>';
 }
 
+function renderWallet() {
+  const C2 = C, A = C2.A, tot = (C2.adsFree + C2.adsPaid) || 1;
+  const kindLbl = { free: 'Shopee tặng', paid: 'LF nạp tiền', spend: 'Khấu trừ chạy Ads' }, fromLbl = { seller_mission_free_credit: 'Nhiệm vụ người bán' };
+  $('#walletCard').innerHTML = `<div class="card-h"><h3>Nguồn tiền chạy Ads</h3><span class="muted sm">Khoảng đang chọn</span></div>
+    <div class="wallet"><div><b>${full(C2.adsPaid)} ₫</b><span>Ads LF nạp tiền · tính vào chi phí</span></div><div><b>${full(C2.adsFree)} ₫</b><span>Ads Shopee tặng · không tốn tiền</span></div></div>
+    <div class="split" title="Tỷ lệ nguồn tiền"><i style="width:${(C2.adsPaid / tot * 100).toFixed(1)}%;background:var(--c-blue)"></i><i style="width:${(C2.adsFree / tot * 100).toFixed(1)}%;background:var(--c-good)"></i></div>
+    <div class="legend" style="margin:0 0 12px"><span><i style="background:var(--c-blue)"></i>LF nạp ${pct(C2.adsPaid / tot, 0)}</span><span><i style="background:var(--c-good)"></i>Shopee tặng ${pct(C2.adsFree / tot, 0)}</span></div>
+    <div class="rows">
+      <div class="row"><span class="k">Tổng LF đã nạp (toàn thời gian)</span><span class="v">${full(WALLET.paidIn)} ₫</span><span></span></div>
+      <div class="row"><span class="k">Tổng Shopee đã tặng</span><span class="v">${full(WALLET.freeIn)} ₫</span><span></span></div>
+      <div class="row"><span class="k">Đã dùng: tiền nạp / tiền tặng</span><span class="v">${full(WALLET.paidUsed)} / ${full(WALLET.freeUsed)} ₫</span><span></span></div>
+      <div class="row"><span class="k">Số dư ước tính: nạp / tặng</span><span class="v">${full(Math.max(0, WALLET.paidBal || 0))} / ${full(Math.max(0, WALLET.freeBal || 0))} ₫</span><span></span></div>
+    </div>${WALLET.hasLedger ? '' : '<p class="note">Chưa có sổ giao dịch Ads nên toàn bộ chi phí Ads đang được tính là tiền LF nạp.</p>'}`;
+  const rows = LEDGER.filter(e => e.day >= S.from && e.day <= S.to).slice().reverse();
+  $('#ledgerTable').innerHTML = rows.length ? `<table><thead><tr><th>Ngày</th><th>Loại</th><th>Nguồn</th><th class="r">Số tiền</th></tr></thead><tbody>` +
+    rows.map(e => `<tr><td>${dmy(e.day)}</td><td><span class="pill ${e.kind}">${kindLbl[e.kind] || esc(e.kind)}</span></td><td class="muted">${esc(e.kind === 'spend' ? 'Dịch vụ Hiển thị Sản phẩm' : (fromLbl[e.from] || e.from || '—'))}</td><td class="r">${e.kind === 'spend' ? '−' : '+'}${full(e.amt)} ₫</td></tr>`).join('') + '</tbody></table>'
+    : '<p class="empty-note">Không có giao dịch Ads trong khoảng này.</p>';
+}
+
 const PAGE = 20;
 function orderRows() {
   const q = S.q.trim().toLowerCase();
   let rows = C.os.filter(o => (!S.status || o.cls === S.status) && (!q || (o.sn + ' ' + o.prov + ' ' + o.sku + ' ' + o.m + ' ' + o.s).toLowerCase().includes(q)));
-  const key = { t: o => o.t, v: o => o.v, q: o => o.q, fee: o => o.fee, inc: o => o.income, prov: o => o.prov }[S.sort] || (o => o.t);
+  const key = { t: o => o.t, v: o => o.v, q: o => o.q, fee: o => o.fee, inc: o => o.income, net: o => o.prodNet, prov: o => o.prov }[S.sort] || (o => o.t);
   return rows.sort((a, b) => { const x = key(a), y = key(b); return (x > y ? 1 : x < y ? -1 : 0) * S.dir; });
 }
 function renderOrders() {
@@ -418,8 +471,8 @@ function renderOrders() {
   $('#ordersSub').textContent = `${C.totalN} đơn trong khoảng · ${C.orders} hợp lệ · ${C.cxN} hủy`;
   const th = (k, l, r) => `<th class="sortable ${r ? 'r' : ''}" data-sort="${k}">${l}${S.sort === k ? (S.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`;
   const fmtT = t => { const d = new Date((t + TZ) * 1000); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
-  $('#ordersTable').innerHTML = rows.length ? `<table><thead><tr><th>Mã đơn</th>${th('t', 'Ngày đặt')}<th>Trạng thái</th>${th('prov', 'Tỉnh/thành')}<th>Phân loại</th>${th('q', 'SL', 1)}${th('v', 'NMV', 1)}<th class="r">Voucher shop</th>${th('fee', 'Phí sàn', 1)}${th('inc', 'Tiền về (ước tính)', 1)}<th>ĐVVC</th></tr></thead><tbody>` +
-    rows.slice(S.page * PAGE, S.page * PAGE + PAGE).map(o => `<tr><td class="sn">${esc(o.sn)}</td><td>${fmtT(o.t)}</td><td><span class="status ${o.cls}">${esc(o.s || '—')}</span></td><td>${esc(o.prov)}</td><td>${esc(o.sku)} <span class="muted">${esc(o.m)}</span></td><td class="r">${o.q}</td><td class="r">${o.cx ? '<s class="muted">' + full(o.v) + '</s>' : full(o.v)}</td><td class="r">${o.cx || !o.sh ? '–' : full(o.sh)}</td><td class="r">${o.cx ? '–' : full(o.fee)}</td><td class="r">${o.cx ? '–' : full(o.income)}</td><td>${esc(o.car || '—')}</td></tr>`).join('') + '</tbody></table>'
+  $('#ordersTable').innerHTML = rows.length ? `<table><thead><tr><th>Mã đơn</th>${th('t', 'Ngày đặt')}<th>Trạng thái</th>${th('prov', 'Tỉnh/thành')}<th>Phân loại</th>${th('q', 'SL', 1)}${th('v', 'NMV', 1)}<th class="r">Voucher shop</th>${th('fee', 'Phí sàn', 1)}${th('net', 'Thực thu SP', 1)}${th('inc', 'Shopee chuyển', 1)}<th>ĐVVC</th></tr></thead><tbody>` +
+    rows.slice(S.page * PAGE, S.page * PAGE + PAGE).map(o => `<tr><td class="sn">${esc(o.sn)}</td><td>${fmtT(o.t)}</td><td><span class="status ${o.cls}">${esc(o.s || '—')}</span></td><td>${esc(o.prov)}</td><td>${esc(o.sku)} <span class="muted">${esc(o.m)}</span></td><td class="r">${o.q}</td><td class="r">${o.cx ? '<s class="muted">' + full(o.v) + '</s>' : full(o.v)}</td><td class="r">${o.cx || !o.sh ? '–' : full(o.sh)}</td><td class="r">${o.cx ? '–' : full(o.fee)}</td><td class="r">${o.cx ? '–' : full(o.prodNet)}</td><td class="r">${o.cx ? '–' : full(o.income)}${!o.cx && o.shipNet > 0 ? '<br><span class="muted sm">gồm ship khách trả ' + short(o.shipNet) + '</span>' : ''}</td><td>${esc(o.car || '—')}</td></tr>`).join('') + '</tbody></table>'
     : '<p class="empty-note">Không có đơn khớp bộ lọc.</p>';
   $$('#ordersTable th[data-sort]').forEach(h => h.addEventListener('click', () => { const k = h.dataset.sort; S.dir = S.sort === k ? -S.dir : -1; S.sort = k; renderOrders(); }));
   $('#pager').innerHTML = rows.length > PAGE ? `<span>${S.page * PAGE + 1}–${Math.min(rows.length, (S.page + 1) * PAGE)} / ${rows.length} đơn</span><div><button class="btn-ghost sm" data-pg="-1" ${S.page ? '' : 'disabled'}>Trước</button><button class="btn-ghost sm" data-pg="1" ${S.page < pages - 1 ? '' : 'disabled'}>Sau</button></div>` : `<span>${rows.length} đơn</span>`;
@@ -481,9 +534,9 @@ function bind() {
 function openSheet() { $('#sidebar').classList.add('open'); $('#scrim').hidden = false; }
 function closeSheet() { $('#sidebar').classList.remove('open'); $('#scrim').hidden = true; }
 function exportCSV() {
-  const rows = orderRows(), head = ['Mã đơn', 'Ngày đặt', 'Trạng thái', 'Tỉnh/thành', 'Miền', 'SKU', 'Phân loại', 'SL', 'Giá bán', 'NMV', 'Khách trả', 'Phí cố định', 'Phí dịch vụ', 'Phí xử lý GD', 'PiShip', 'Voucher shop', 'Voucher Shopee', 'Tiền về ước tính', 'ĐVVC'];
+  const rows = orderRows(), head = ['Mã đơn', 'Ngày đặt', 'Trạng thái', 'Tỉnh/thành', 'Miền', 'SKU', 'Phân loại', 'SL', 'Giá bán', 'NMV', 'Khách trả', 'Phí cố định', 'Phí dịch vụ', 'Phí xử lý GD', 'PiShip', 'Voucher shop', 'Voucher Shopee', 'Thực thu sản phẩm', 'Shopee chuyển (ước tính)', 'ĐVVC'];
   const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-  const lines = rows.map(o => [o.sn, new Date((o.t + TZ) * 1000).toISOString().slice(0, 16).replace('T', ' '), o.s, o.prov, o.region, o.sku, o.m, o.q, o.p, o.cx ? 0 : o.v, o.paid, o.fx, o.sv, o.tx, o.pi, o.sh, o.pv, o.cx ? 0 : o.income, o.car].map(q).join(','));
+  const lines = rows.map(o => [o.sn, new Date((o.t + TZ) * 1000).toISOString().slice(0, 16).replace('T', ' '), o.s, o.prov, o.region, o.sku, o.m, o.q, o.p, o.cx ? 0 : o.v, o.paid, o.fx, o.sv, o.tx, o.pi, o.sh, o.pv, o.cx ? 0 : o.prodNet, o.cx ? 0 : o.income, o.car].map(q).join(','));
   const blob = new Blob(['﻿' + [head.map(q).join(',')].concat(lines).join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `living-furniture-shopee_${keyToISO(S.from)}_${keyToISO(S.to)}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }

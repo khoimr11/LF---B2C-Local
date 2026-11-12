@@ -147,7 +147,12 @@
           <div class="card"><div class="card-h"><h3>Top phân loại theo NMV</h3></div><div id="skuTable"></div></div>
           <div class="card"><div class="card-h"><h3>Tồn kho</h3><span class="muted sm" id="stockNote"></span></div><div id="stockTable"></div></div>
         </div>
-        <div class="card"><div class="card-h"><h3>Giá bán thực tế</h3><span class="muted sm">Số sản phẩm bán ra theo mức giá sau giảm giá shop</span></div><div id="priceBars" class="hbars"></div></div>
+        <div class="card">
+          <div class="card-h"><h3>Giá bán và thực thu mỗi sản phẩm</h3><span class="muted sm">Cột: số sản phẩm bán ở từng mức giá · Đường: tiền thực thu trung bình cho 1 sản phẩm</span></div>
+          <div class="chart" id="priceChart"></div>
+          <div class="legend"><span><i style="background:var(--c-brand)"></i>Số sản phẩm bán</span><span><i style="background:var(--c-blue)"></i>Thực thu / sản phẩm (trục phải)</span></div>
+          <div class="tbl-scroll" id="priceTable" style="margin-top:12px"></div>
+        </div>
       </section>
 
       <!-- Region & time -->
@@ -176,6 +181,10 @@
       <!-- Ads -->
       <section id="ads" class="sec">
         <div class="sec-h big"><h2>Shopee Ads</h2><span class="sec-sub" id="adsSub">Dịch vụ Hiển thị Sản phẩm · đơn tính theo cách "gián tiếp" của Shopee</span></div>
+        <div class="cards-2">
+          <div class="card" id="walletCard"></div>
+          <div class="card"><div class="card-h"><h3>Sổ giao dịch tài khoản Ads</h3><span class="muted sm">Theo Kênh Người Bán · Tài khoản Dịch vụ Hiển thị</span></div><div class="tbl-scroll" id="ledgerTable"></div></div>
+        </div>
         <div class="tiles" id="adsTiles"></div>
         <div class="cards-2">
           <div class="card"><div class="card-h"><h3>Phễu quảng cáo</h3></div><div id="funnel"></div></div>
@@ -200,12 +209,13 @@
       <section class="sec defs">
         <div class="sec-h"><h2>Cách tính</h2></div>
         <dl class="def-grid">
-          <div><dt>NMV</dt><dd>Giá bán × số lượng của các đơn không bị hủy: Chờ xác nhận, Chờ lấy hàng, Đang giao, Đã giao.</dd></div>
+          <div><dt>NMV</dt><dd>Giá shop bán (giá sau giảm giá sản phẩm, trước voucher) × số lượng, tính trên đơn không bị hủy: Chờ xác nhận, Chờ lấy hàng, Đang giao, Đã giao.</dd></div>
           <div><dt>GMV</dt><dd>Giá bán × số lượng của mọi đơn, kể cả đơn hủy.</dd></div>
           <div><dt>Phí sàn</dt><dd>Phí cố định + Phí dịch vụ + Phí xử lý giao dịch + PiShip, lấy từ chi tiết doanh thu từng đơn. Đơn chưa hoàn tất dùng số Shopee ước tính.</dd></div>
-          <div><dt>Mkt fee</dt><dd>Chi phí Ads + voucher của shop. Giảm giá so với giá niêm yết đã nằm trong giá bán nên không trừ thêm.</dd></div>
-          <div><dt>NMV thực nhận</dt><dd>NMV − phí sàn − Mkt fee.</dd></div>
-          <div><dt>Tiền về dự kiến</dt><dd>Tổng "Doanh thu đơn hàng ước tính" Shopee báo cho từng đơn, trừ chi phí Ads.</dd></div>
+          <div><dt>Mkt fee</dt><dd>Ads LF nạp tiền + voucher của shop. Ads chạy bằng tiền Shopee tặng (nhiệm vụ) không tốn tiền nên không trừ. Giảm giá so với giá niêm yết đã nằm trong giá bán nên không trừ thêm.</dd></div>
+          <div><dt>NMV thực nhận</dt><dd>NMV − phí sàn − voucher shop − Ads LF nạp tiền. Mọi tỷ lệ % trên dashboard đều chia cho NMV.</dd></div>
+          <div><dt>Thực thu / sản phẩm</dt><dd>(Giá bán − voucher shop − phí sàn) ÷ số lượng. Không tính phí ship khách trả mà Shopee chuyển kèm.</dd></div>
+          <div><dt>Ads LF nạp / Shopee tặng</dt><dd>Theo sổ giao dịch tài khoản Ads: mỗi ngày Shopee trừ tiền tặng trước, hết mới trừ tiền nạp.</dd></div>
         </dl>
         <p class="muted sm">Nguồn: Kênh Người Bán Shopee. Giờ theo GMT+7. Dữ liệu tự cập nhật lúc 16:00 mỗi ngày.</p>
       </section>

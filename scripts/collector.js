@@ -5,6 +5,7 @@
 //   LG.chunk(i)                     -> 6 order rows per call (JSON arrays, one per line)
 //   LG.ads()                        -> ads daily rows
 //   LG.products()                   -> product/model rows with list price + stock
+//   LG.ledger()                     -> ads wallet ledger: [date, 'free'|'paid'|'spend', amountVND, type, receivedFrom]
 // Order row: [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,sh,pv,inc,sku,ret,itemId]
 //   fee fields (fx..inc) are null when not refreshed in this run -> keep previous values when merging
 // Ads row:   [dayStart,impr,clicks,cost,broadOrders,broadGMV,directOrders,directGMV,atc,broadUnits]
@@ -12,7 +13,7 @@
 window.LG = (() => {
   const cds = (document.cookie.match(/SPC_CDS=([^;]+)/) || [])[1];
   const Q = 'SPC_CDS=' + cds + '&SPC_CDS_VER=2';
-  const S = { phase: 'idle', rows: [], ads: [], prods: [], feeDone: 0, feeTotal: 0, err: null };
+  const S = { phase: 'idle', rows: [], ads: [], prods: [], ledger: [], feeDone: 0, feeTotal: 0, err: null };
   const j = async (u, b) => (await fetch(u + (u.includes('?') ? '&' : '?') + Q, b ? { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include', body: JSON.stringify(b) } : { credentials: 'include' })).json();
   const pick = (t, l) => { const m = t.match(new RegExp(l + '\\s*\\n\\s*(-?₫[\\d.]+)')); return m ? Number(m[1].replace(/[₫.]/g, '')) : null; };
   const fee = id => new Promise(res => {
@@ -25,7 +26,7 @@ window.LG = (() => {
         f.remove(); } }, 300); });
   async function start(orderDays = 45, feeDays = 21) {
     try {
-      Object.assign(S, { phase: 'orders', rows: [], ads: [], prods: [], feeDone: 0, feeTotal: 0, err: null });
+      Object.assign(S, { phase: 'orders', rows: [], ads: [], prods: [], ledger: [], feeDone: 0, feeTotal: 0, err: null });
       const now = Math.floor(Date.now() / 1000), cut = now - orderDays * 86400, feeCut = now - feeDays * 86400;
       const ids = []; let page = 1;
       while (page < 60) {
@@ -55,8 +56,19 @@ window.LG = (() => {
       const day0 = Math.floor((now + 25200) / 86400) * 86400 - 25200;
       const g = await j('/api/pas/v1/report/get_time_graph/', { agg_interval: 96, campaign_type: 'product_homepage_v2', start_time: day0 - 89 * 86400, end_time: day0 + 86399, need_roi_target_setting: false, filter_params: { campaign_type: 'new_cpc_homepage' } });
       S.ads = ((g.data && g.data.report_by_time) || []).map(x => { const m = x.metrics;
-        return [Number(x.key), m.impression, m.click, Math.round(m.cost / 1e5), m.broad_order, Math.round(m.broad_gmv / 1e5), m.direct_order, Math.round(m.direct_gmv / 1e5), m.atc || 0, m.broad_order_amount || 0]; })
+        return [Number(x.key), m.impression, m.click, Math.round(m.cost / 1e3) / 100, m.broad_order, Math.round(m.broad_gmv / 1e5), m.direct_order, Math.round(m.direct_gmv / 1e5), m.atc || 0, m.broad_order_amount || 0]; })
         .filter(r => r[1] || r[3]);
+      S.phase = 'ledger';  // sổ giao dịch tài khoản Ads: tiền nạp, tiền Shopee tặng, khấu trừ
+      for (let w = 0; w < 3; w++) {
+        const a = day0 - (w * 30 + 29) * 86400, b = day0 - w * 30 * 86400 + 86399;
+        for (let off = 0; off < 2000; off += 100) {
+          const t = await j('/api/pas/v1/transaction_history/get/', { start_time: a, end_time: b, offset: off, limit: 100 });
+          const l = (t.data && t.data.translog_list) || [];
+          l.forEach(e => S.ledger.push([e.date, e.transaction_group === 'topup' ? (e.transaction_type === 'free_ads_credit' ? 'free' : 'paid') : e.transaction_group === 'deduction' ? 'spend' : e.transaction_group, Math.round(e.amount / 1e3) / 100, e.transaction_type, e.received_from || '']));
+          if (l.length < 100) break;
+        }
+      }
+      S.ledger.sort((x, y) => x[0] - y[0]);
       S.phase = 'fees';
       const need = S.rows.filter(r => !/hủy/i.test(r.s) && r.t >= feeCut); S.feeTotal = need.length;
       for (const r of need) { Object.assign(r, await fee(r.id)); S.feeDone++; }
@@ -69,7 +81,8 @@ window.LG = (() => {
     status() { return JSON.stringify({ phase: S.phase, orders: S.rows.length, ads: S.ads.length, fees: S.feeDone + '/' + S.feeTotal, err: S.err }); },
     chunk(i) { return S.rows.slice(i * 6, i * 6 + 6).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid])).join('\n'); },
     ads() { return JSON.stringify(S.ads); },
-    products() { return JSON.stringify(S.prods); }
+    products() { return JSON.stringify(S.prods); },
+    ledger() { return JSON.stringify(S.ledger); }
   };
 })();
 'LG ready';
