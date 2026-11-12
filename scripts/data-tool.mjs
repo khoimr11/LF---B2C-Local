@@ -49,7 +49,7 @@ function merge(data, add) {
     if (!old) { bySn.set(r[0], r); added++; continue; }
     const m = r.slice();
     for (let i = 11; i <= 17; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
-    for (let i = 18; i <= 27; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
+    for (let i = 18; i <= 31; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null;
     bySn.set(r[0], m); updated++;
   }
   data.orders = [...bySn.values()].sort((a, b) => b[1] - a[1]);

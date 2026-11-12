@@ -92,7 +92,7 @@ function prepare(d) {
   ORDERS = (d.orders || []).map(r => {
     const o = { sn: r[0], t: r[1], st: r[2], s: r[3] || '', q: r[4] || 0, v: r[5] || 0, paid: r[6] || 0, m: r[7] || '', p: r[8] || 0, prov: r[9] || '', car: r[10] || '',
       fx: r[11] || 0, sv: r[12] || 0, pi: r[13] || 0, tx: r[14] || 0, sh: r[15] || 0, pv: r[16] || 0, inc: r[17], sku: r[18] || '', ret: !!r[19], iid: r[20],
-      ward: r[21] || '', sb: r[22] || 0, sf: r[23] || 0, ss: r[24] || 0, fin: !!r[25], surcharge: r[26], deal: r[27] || '' };
+      ward: r[21] || '', sb: r[22] || 0, sf: r[23] || 0, ss: r[24] || 0, fin: !!r[25], surcharge: r[26], deal: r[27] || '', chan: r[28] || '', exp: r[29] == null ? null : !!r[29], tp: r[30] || null, td: r[31] || null };
     o.day = dayKey(o.t); o.hour = Math.floor(((o.t + TZ) % DAY) / 3600); o.wd = keyToDate(o.day).getUTCDay();
     o.region = regionOf(o.prov); o.cx = /hủy/i.test(o.s) || o.st === 5;
     o.cls = o.cx ? 'cx' : /trả hàng|hoàn tiền/i.test(o.s) ? 'cx' : /^Đã giao$|hoàn thành/i.test(o.s) ? 'ok' : /ĐVVC|đang giao|vận chuyển/i.test(o.s) ? 'ship' : 'wait';
@@ -314,7 +314,7 @@ function render() {
   $('#heroNote').textContent = (filt.length ? 'Đang lọc: ' + filt.join(' · ') + ' · ' : '') + `${C.orders} đơn hợp lệ · ${C.units} sản phẩm · ${C.cxN} đơn hủy`;
   syncControls();
   [renderBiz, renderWaterfall, renderGroups, renderTarget, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
-   renderPromos, renderRegion, renderProv, renderWard, renderHour, renderCarrier, renderReviews, renderAds, renderOrders].forEach(f => { try { f(); } catch (e) { console.error(f.name, e); } });
+   renderPromos, renderRegion, renderProv, renderWard, renderHour, renderCarrier, renderExpress, renderReviews, renderAds, renderOrders].forEach(f => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
 
 function seriesBy(f) { const out = Array(C.days).fill(0); C.ok.forEach(o => { const i = o.day - C.a; if (i >= 0 && i < out.length) out[i] += f(o); }); return out; }
@@ -372,7 +372,7 @@ function renderGroups() {
       note: C.fxFreeN ? `${C.fxFreeN} đơn được Shopee để phí cố định ₫0 nên tỷ lệ chung thấp hơn. Ở các đơn có thu, phí cố định = ${pct(C.fxPos / C.fxBase)} giá bán sau voucher shop.` : '' }),
     mcard({ icon: ICON.health, title: 'Sức khỏe đơn hàng', color: 'var(--c-bad)', hero: { label: 'Tỷ lệ hủy (trên tổng đơn đặt)', value: pct(C.cxRate), d: PT(x => x.cxRate, 1) },
       viz: stackBar([{ l: 'Đã giao', v: C.doneN, c: 'var(--c-good)' }, { l: 'Đang giao', v: C.shipN, c: 'var(--c-blue)' }, { l: 'Chờ xử lý', v: C.waitN, c: 'var(--c-warn)' }, { l: 'Hủy', v: C.cxN, c: 'var(--c-bad)' }]),
-      rows: [{ k: 'Tổng đơn đặt', v: C.totalN + ' đơn', d: D(x => x.totalN) }, { k: 'Đơn hủy', v: C.cxN + ' đơn', ratio: pct(C.cxRate), d: D(x => x.cxN, 1) }, { k: 'Trả hàng / hoàn tiền', v: C.retN + ' đơn', ratio: pct(C.retRate), d: D(x => x.retN, 1) }, { k: 'Đã chốt doanh thu', v: C.finalN + ' đơn', ratio: pct(C.finalN / (C.orders || 1)) }] }),
+      rows: [{ k: 'Tổng đơn đặt', v: C.totalN + ' đơn', d: D(x => x.totalN) }, { k: 'Đơn hủy', v: C.cxN + ' đơn', ratio: pct(C.cxRate), d: D(x => x.cxN, 1) }, { k: 'Trả hàng / hoàn tiền', v: C.retN + ' đơn', ratio: pct(C.retRate), d: D(x => x.retN, 1) }, { k: 'Đã chốt doanh thu', v: C.finalN + ' đơn', ratio: pct(C.finalN / (C.orders || 1)) }, { k: 'Giao hỏa tốc', v: C.ok.some(o => o.exp !== null) ? C.ok.filter(o => o.exp).length + ' đơn' : '–', ratio: C.ok.some(o => o.exp !== null) ? pct(C.ok.filter(o => o.exp).length / (C.ok.filter(o => o.exp !== null).length || 1)) : null }] }),
     mcard({ icon: ICON.promo, title: 'Khuyến mãi', color: 'var(--c-indigo)', hero: { label: `Voucher shop (shop tự chi) · ${pct(C.sh / n)} NMV`, value: money(C.sh), d: D(x => x.sh, 1) },
       viz: stackBar([{ l: 'Voucher shop', v: C.sh, c: 'var(--c-indigo)' }, { l: 'Voucher Shopee', v: C.pv, c: 'var(--c-teal)' }]),
       rows: [{ k: 'NMV từ Flash Sale', v: money(sum(C.ok.filter(o => o.src === 'fs'), o => o.v)), ratio: rp(sum(C.ok.filter(o => o.src === 'fs'), o => o.v)) }, { k: 'Voucher shop (shop trả)', v: money(C.sh), ratio: rp(C.sh), d: D(x => x.sh, 1) }, { k: 'Voucher & trợ giá Shopee (sàn trả)', v: money(C.pv), ratio: rp(C.pv), d: D(x => x.pv) }, { k: 'Giảm giá so giá niêm yết', v: money(C.promo), ratio: rp(C.promo), d: D(x => x.promo), cls: 'dim' }],
@@ -578,6 +578,23 @@ function renderCarrier() {
   $$('#carrierTable tr[data-car]').forEach(tr => tr.addEventListener('click', () => { S.carrier = S.carrier === tr.dataset.car ? '' : tr.dataset.car; S.page = 0; render(); }));
 }
 
+/* ---------- express delivery & shipping channels ---------- */
+function renderExpress() {
+  const ok = C.ok, known = ok.filter(o => o.exp !== null), ex = known.filter(o => o.exp), n = C.nmv || 1;
+  const hrs = os => { const t = os.filter(o => o.td && o.t && o.td > o.t); return t.length ? sum(t, o => (o.td - o.t) / 3600) / t.length : NaN; };
+  const shipAvg = os => os.length ? sum(os, o => o.sf) / os.length : NaN, dur = h => !isFinite(h) ? '–' : h < 48 ? num2(h) + ' giờ' : num2(h / 24) + ' ngày';
+  $('#expSub').textContent = !known.length ? 'Dữ liệu kênh vận chuyển sẽ có từ lần cập nhật tự động tiếp theo' : known.length < ok.length ? `Kênh vận chuyển có cho ${known.length}/${ok.length} đơn (đơn cũ hơn chưa có thông tin này) · thời gian giao tính từ lúc đặt đến lúc giao thành công` : 'Theo kênh vận chuyển khách chọn khi đặt · thời gian giao tính từ lúc đặt đến lúc giao thành công';
+  const T = [['Đơn giao hỏa tốc', known.length ? `${ex.length} đơn` : '–', known.length ? `${pct(ex.length / known.length)} số đơn` : 'Chưa có dữ liệu', 'fs'],
+    ['NMV hỏa tốc', known.length ? money(sum(ex, o => o.v)) : '–', known.length ? pct(sum(ex, o => o.v) / n) + ' NMV' : ''],
+    ['Thời gian giao TB: hỏa tốc', dur(hrs(ex)), ''], ['Thời gian giao TB: thường', dur(hrs(known.filter(o => !o.exp))), ''],
+    ['Phí ship TB/đơn: hỏa tốc', ex.length ? money(shipAvg(ex)) : '–', 'Trước trợ giá Shopee'], ['Phí ship TB/đơn: thường', known.length - ex.length ? money(shipAvg(known.filter(o => !o.exp))) : '–', 'Trước trợ giá Shopee']];
+  $('#expTiles').innerHTML = T.map(([l, v, f, k]) => `<div class="tile ${k || ''}"><span class="tile-l">${l}</span><span class="tile-v">${v}</span><span class="tile-f"><em>${f}</em></span></div>`).join('');
+  const rows = [...groupBy(known, o => o.chan || 'Không rõ').entries()].map(([k, os]) => ({ k, os, v: sum(os, o => o.v), exp: os.some(o => o.exp) })).sort((a, b) => b.v - a.v);
+  $('#chanTable').innerHTML = rows.length ? `<table><thead><tr><th>Kênh vận chuyển</th><th class="r">Đơn</th><th class="r">% đơn</th><th class="r">NMV</th><th class="r">Phí ship TB</th><th class="r">Khách trả TB</th><th class="r">Giao TB</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${esc(r.k)} ${r.exp ? '<span class="pill spend">Hỏa tốc</span>' : ''}</td><td class="r">${r.os.length}</td><td class="r">${pct(r.os.length / known.length)}</td><td class="r">${full(r.v)}</td><td class="r">${full(shipAvg(r.os))}</td><td class="r">${full(sum(r.os, o => o.sb) / r.os.length)}</td><td class="r">${dur(hrs(r.os))}</td></tr>`).join('') + '</tbody></table>'
+    : '<p class="empty-note">Chưa có dữ liệu kênh vận chuyển, sẽ có sau lần cập nhật tự động tiếp theo.</p>';
+}
+
 /* ---------- reviews ---------- */
 function renderReviews() {
   const rv = REVIEWS.filter(r => r.day >= S.from && r.day <= S.to), all = REVIEWS, avg = rv.length ? sum(rv, r => r.star) / rv.length : NaN, avgAll = all.length ? sum(all, r => r.star) / all.length : NaN;
@@ -655,7 +672,7 @@ function renderOrders() {
     page.map((o, i) => `<tr data-tip="${i}"><td class="sn">${esc(o.sn)}</td><td>${fmtT(o.t)}</td><td><span class="status ${o.cls}">${esc(o.s || '—')}</span></td><td><span class="cell2">${esc(o.ward)}<em>${esc(o.prov)}</em></span></td><td>${esc(o.sku)} <span class="muted">${esc(o.m)}</span></td><td class="r">${o.q}</td><td class="r">${o.cx ? '<s class="muted">' + full(o.v) + '</s>' : full(o.v)}</td><td class="r">${o.cx ? '–' : full(o.fee)}</td><td class="r">${o.cx || !o.sh ? '–' : full(o.sh)}</td><td class="r"><b>${o.cx ? '–' : full(o.prodNet)}</b></td><td class="r">${o.cx ? '–' : full(o.income)}${o.cx ? '' : o.fin ? '<em class="tag ok">đã chốt</em>' : '<em class="tag">ước tính</em>'}</td></tr>`).join('') + '</tbody></table>'
     : '<p class="empty-note">Không có đơn khớp bộ lọc.</p>';
   bindTips($('#ordersTable'), i => { const o = page[+i]; if (o.cx) return `<b>${esc(o.sn)}</b><div class="tr"><span>Đơn đã hủy, không tính NMV</span></div>`;
-    return `<b>${esc(o.sn)} · ${o.q} × ${money(o.p)}</b>` + tipRows([['Nguồn giá', SRC[o.src][0] + (o.discName ? ' · ' + esc(o.discName) : '')], ['NMV', money(o.v)], ['Phí cố định', '−' + full(o.fx) + ' · ' + pct(o.fx / o.v)], ['Phí dịch vụ', '−' + full(o.sv) + ' · ' + pct(o.sv / o.v)], ['Phí xử lý GD', '−' + full(o.tx) + ' · ' + pct(o.tx / o.v)], ['PiShip', '−' + full(o.pi)], ['Voucher shop', '−' + full(o.sh)],
+    return `<b>${esc(o.sn)} · ${o.q} × ${money(o.p)}</b>` + tipRows([o.chan ? ['Vận chuyển', esc(o.chan) + (o.exp ? ' · hỏa tốc' : '')] : null, ['Nguồn giá', SRC[o.src][0] + (o.discName ? ' · ' + esc(o.discName) : '')], ['NMV', money(o.v)], ['Phí cố định', '−' + full(o.fx) + ' · ' + pct(o.fx / o.v)], ['Phí dịch vụ', '−' + full(o.sv) + ' · ' + pct(o.sv / o.v)], ['Phí xử lý GD', '−' + full(o.tx) + ' · ' + pct(o.tx / o.v)], ['PiShip', '−' + full(o.pi)], ['Voucher shop', '−' + full(o.sh)],
       ['= Thực thu sản phẩm', money(o.prodNet) + ' · ' + pct(o.prodNet / o.v)], o.shipNet ? ['Ship đi qua (khách trả/trợ giá)', (o.shipNet > 0 ? '+' : '') + full(o.shipNet)] : null, ['Shopee chuyển', money(o.income) + (o.fin ? ' (đã chốt)' : ' (ước tính)')], o.recon != null ? ['Đối soát với Shopee', o.recon === 0 ? '✓ khớp' : 'lệch ' + full(o.recon)] : null]); }, 'tbody tr');
   $$('#ordersTable th[data-sort]').forEach(h => h.addEventListener('click', () => { const k = h.dataset.sort; S.dir = S.sort === k ? -S.dir : -1; S.sort = k; renderOrders(); }));
   $('#pager').innerHTML = rows.length > PAGE ? `<span>${S.page * PAGE + 1}–${Math.min(rows.length, (S.page + 1) * PAGE)} / ${rows.length} đơn</span><div><button class="btn-ghost sm" data-pg="-1" ${S.page ? '' : 'disabled'}>Trước</button><button class="btn-ghost sm" data-pg="1" ${S.page < pages - 1 ? '' : 'disabled'}>Sau</button></div>` : `<span>${rows.length} đơn</span>`;

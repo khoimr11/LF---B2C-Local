@@ -10,7 +10,7 @@
 //   LG.promo()                      -> {fs: flash sales, disc: discounts/combos/add-ons, vch: vouchers, kpi: Shopee 7-day metrics per tool}
 // To save tokens, chunk/ads/ledger/reviews only return the recent window (fee window + 9 days, plus unfinished orders);
 // data-tool merge keeps everything older.
-// Order row: [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,sh,pv,inc,sku,ret,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal]
+// Order row: [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,sh,pv,inc,sku,ret,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal,shipChannel,express,pickupTime,deliveredTime]
 //   fee fields (fx..inc) are null when not refreshed in this run -> keep previous values when merging
 // Ads row:   [dayStart,impr,clicks,cost,broadOrders,broadGMV,directOrders,directGMV,atc,broadUnits]
 // Product:   [itemId,modelId,itemName,modelName,sku,normalPrice,promoPrice,stock]
@@ -38,6 +38,20 @@ window.LG = (() => {
           sh: neg(g(o, 'Trợ giá')), surcharge: neg(g(o, 'Phụ phí')), inc: g(o, 'Doanh Thu Đơn Hàng', 'Doanh thu đơn hàng ước tính'), fin: 'Doanh Thu Đơn Hàng' in o ? 1 : 0,
           sb: g(o, 'Phí vận chuyển Người mua trả') || 0, sf: neg(g(o, 'Phí vận chuyển thực tế', 'Phí vận chuyển ước tính')), ss: g(o, 'Phí vận chuyển được trợ giá từ Shopee', 'Phí vận chuyển được trợ giá từ Shopee ước tính') || 0 }); } }, 350); });
   const P = (u, b) => j(u, b);
+  // kênh vận chuyển + giao hỏa tốc + mốc thời gian giao (quét key trong đơn vì Shopee đặt tên không cố định)
+  const shipInfo = d => {
+    const names = [], times = {};
+    const walk = (o, k0, dep) => { if (!o || typeof o !== 'object' || dep > 4) return; for (const k in o) { const v = o[k], kk = (k0 + '.' + k).toLowerCase();
+      if (typeof v === 'string' && v && v.length < 80 && /(carrier|channel|shipping_method|logistic)[a-z_]*name|carrier_name|channel_name/.test(kk)) names[/checkout|channel/.test(kk) ? 'unshift' : 'push'](v);
+      else if (typeof v === 'number' && v > 1.6e9 && v < 2.2e9 && /(pickup|ship|deliver|complete|receive)[a-z_]*time/.test(kk) && !/by|deadline|expire|estimat|edt|days/.test(kk)) times[k] = v;
+      else if (typeof v === 'object') walk(v, k, dep + 1); } };
+    walk(d, '', 0);
+    const chan = names[0] || '';
+    const all = names.join(' | ');
+    const pick = re => { const k = Object.keys(times).find(x => re.test(x)); return k ? times[k] : null; };
+    return { chan, exp: /h[oỏ]a\s*t[oố]c|instant|siêu tốc|sieu toc|express 2h|trong 2h|ahamove|grab|bedelivery|\bbe\b/i.test(all) ? 1 : 0,
+      tp: pick(/pickup|ship_time|shipping_confirm/), td: pick(/deliver|complete|receive/) };
+  };
   async function promo(since) {
     let fs = [];
     for (let o = 0; o < 500; o += 50) { const r = await j('/api/marketing/v4/shop_flash_sale/get_shop_flash_sale_list/?offset=' + o + '&limit=50&type=0'); const l = (r.data && r.data.flash_sale_list) || []; fs = fs.concat(l); if (l.length < 50) break; }
@@ -91,7 +105,7 @@ window.LG = (() => {
           m: it.map(i => (i.item_model || {}).name).join('/'), p: Number((it[0] || {}).order_price || 0),
           prov: (a[a.length - 1] || '').replace(/^\*+/, '').replace('Thành phố ', '').replace('Tỉnh ', ''), ward: (a[a.length - 2] || '').replace(/^\*+/, ''), car: (d.fulfillment_carrier_name || '').split(' ')[0] || null,
           sku: it.map(i => (i.item_model || {}).sku || (i.product || {}).sku).join('/'), ret: d.return_id ? 1 : 0, iid: (it[0] || {}).item_id || null,
-          deal: it.some(i => i.bundle_deal_id) ? 'combo' : it.some(i => i.add_on_deal_id) ? 'addon' : '' });
+          deal: it.some(i => i.bundle_deal_id) ? 'combo' : it.some(i => i.add_on_deal_id) ? 'addon' : '', ...shipInfo(d) });
       }
       S.phase = 'products';
       for (const iid of items) {
@@ -136,9 +150,9 @@ window.LG = (() => {
   return {
     start(o, f) { start(o, f); return 'started'; },
     status() { return JSON.stringify({ phase: S.phase, orders: S.rows.length, ads: S.ads.length, fees: S.feeDone + '/' + S.feeTotal, err: S.err, promoErr: S.promoErr || null }); },
-    // [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,voucherShop,voucherShopee,income,sku,return,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal]
+    // [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,voucherShop,voucherShopee,income,sku,return,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal,shipChannel,express,pickupTime,deliveredTime]
     // chỉ trả về đơn trong cửa sổ đọc phí hoặc chưa ở trạng thái cuối, đơn cũ đã chốt được giữ nguyên khi merge
-    chunk(i) { return S.rows.filter(r => r.t >= S.feeCut || !/^(Đã giao|Đã hủy|Hoàn thành)$/.test(r.s)).slice(i * 5, i * 5 + 5).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid, r.ward, N(r.sb), N(r.sf), N(r.ss), N(r.fin), N(r.surcharge), r.deal || ''])).join('\n'); },
+    chunk(i) { return S.rows.filter(r => r.t >= S.feeCut || !/^(Đã giao|Đã hủy|Hoàn thành)$/.test(r.s)).slice(i * 5, i * 5 + 5).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid, r.ward, N(r.sb), N(r.sf), N(r.ss), N(r.fin), N(r.surcharge), r.deal || '', r.chan || '', r.exp ? 1 : 0, N(r.tp), N(r.td)])).join('\n'); },
     promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
     // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
     pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
