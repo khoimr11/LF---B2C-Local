@@ -393,14 +393,23 @@ function reviewMiniCard() {
     rows: [{ k: 'Tỷ lệ đánh giá / đơn đã giao', v: isFinite(rate) ? pct(rate, 0) : '–' }, { k: 'Đánh giá có nội dung', v: rv.filter(r => r.text.trim()).length + ' / ' + rv.length }, { k: 'Shop đã phản hồi', v: rv.filter(r => r.replied).length + ' / ' + rv.length }, { k: 'Đơn mua ≥ 2 sản phẩm', v: pct(C.multiRate) }, { k: 'Sản phẩm trung bình / đơn', v: num2(C.upo) + ' sp' }] });
 }
 
+/* Kế hoạch kệ 3 tầng (bảng target): kệ/tháng, giá sàn 315.000₫, thực thu mục tiêu 189.051₫/kệ */
+const PLAN = { months: { '2026-11': 95, '2026-12': 300, '2027-01': 555, '2027-02': 333, '2027-03': 400, '2027-04': 480, '2027-05': 537 }, floor: 315000, netUnit: 189051 };
+function planUnits(a, b) { // kế hoạch kệ trong khoảng ngày, chia đều theo ngày của từng tháng
+  let u = 0; for (let k = a; k <= b; k++) { const d = keyToDate(k), ym = d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1), n = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate(); u += (PLAN.months[ym] || 0) / n; } return u;
+}
 function renderTarget() {
-  const key = 'lf-target-' + S.from + '-' + S.to, tgt = +(store.get(key) || 0), t = todayKey();
-  const elapsed = Math.max(1, Math.min(S.to, t) - S.from + 1), days = S.to - S.from + 1, proj = S.to > t && S.from <= t ? C.nmv / elapsed * days : C.nmv, rate = tgt ? C.nmv / tgt : 0;
-  $('#targetCard').innerHTML = `<div class="card-h"><div><h3>Mục tiêu NMV</h3><p class="card-sub">Lưu riêng cho từng khoảng ngày</p></div>
-    <label class="target-input"><input id="targetInput" inputmode="numeric" placeholder="Nhập mục tiêu, VD 30.000.000" value="${tgt ? full(tgt) : ''}" aria-label="Mục tiêu NMV"></label></div>
-    <div class="ring-row"><div class="ring" style="--p:${Math.min(100, rate * 100).toFixed(1)}"><b>${tgt ? pct(rate, 0) : '—'}</b><span>đã đạt</span></div>
-    <div class="target-meta"><div><b>${short(C.nmv)} ₫</b><span>Đã bán</span></div><div><b>${tgt ? short(Math.max(0, tgt - C.nmv)) + ' ₫' : '—'}</b><span>Còn thiếu</span></div>
-    <div><b>${short(proj)} ₫</b><span>${S.to > t ? 'Dự phóng cuối kỳ' : 'NMV cả kỳ'}</span></div><div><b>${tgt && S.to > t ? short(Math.max(0, tgt - C.nmv) / Math.max(1, S.to - t)) + ' ₫' : short(C.nmv / days) + ' ₫'}</b><span>${tgt && S.to > t ? 'Cần mỗi ngày còn lại' : 'TB mỗi ngày'}</span></div></div></div>`;
+  const key = 'lf-target-' + S.from + '-' + S.to, manual = +(store.get(key) || 0), t = todayKey();
+  const pu = planUnits(S.from, S.to), tgtU = Math.round(pu), tgt = manual || Math.round(pu * PLAN.floor);
+  const elapsed = Math.max(1, Math.min(S.to, t) - S.from + 1), days = S.to - S.from + 1, live = S.to > t && S.from <= t;
+  const proj = live ? C.nmv / elapsed * days : C.nmv, projU = live ? C.units / elapsed * days : C.units, rate = tgt ? C.nmv / tgt : 0, rateU = tgtU ? C.units / tgtU : 0;
+  $('#targetCard').innerHTML = `<div class="card-h"><div><h3>Mục tiêu theo kế hoạch</h3><p class="card-sub">${tgtU ? `Kế hoạch ${full(tgtU)} kệ × giá sàn ${short(PLAN.floor)} ₫${manual ? ' · đang dùng NMV nhập tay' : ''}` : 'Ngoài kỳ kế hoạch T11/2026–T5/2027 · nhập mục tiêu NMV'}</p></div>
+    <label class="target-input"><input id="targetInput" inputmode="numeric" placeholder="${tgtU ? 'Theo kế hoạch: ' + full(Math.round(pu * PLAN.floor)) : 'Nhập mục tiêu, VD 30.000.000'}" value="${manual ? full(manual) : ''}" aria-label="Mục tiêu NMV"></label></div>
+    <div class="ring-row"><div class="ring" style="--p:${Math.min(100, (tgtU ? rateU : rate) * 100).toFixed(1)}"><b>${tgtU ? pct(rateU, 0) : tgt ? pct(rate, 0) : '—'}</b><span>${tgtU ? 'kệ đã đạt' : 'đã đạt'}</span></div>
+    <div class="target-meta"><div><b>${full(C.units)}${tgtU ? ' / ' + full(tgtU) : ''} kệ</b><span>Đã bán / kế hoạch</span></div><div><b>${short(C.nmv)} ₫</b><span>NMV${tgt ? ' · ' + pct(rate, 0) + ' của ' + short(tgt) + ' ₫' : ''}</span></div>
+    <div><b>${live ? full(Math.round(projU)) + ' kệ' : short(proj) + ' ₫'}</b><span>${live ? 'Dự phóng cuối kỳ · ' + short(proj) + ' ₫' : 'NMV cả kỳ'}</span></div>
+    <div><b style="color:${C.unitNet && C.unitNet < PLAN.netUnit ? 'var(--c-red, #d03b3b)' : 'inherit'}">${C.units ? short(C.unitNet) + ' ₫' : '—'}</b><span>Thực thu/kệ · mục tiêu ${short(PLAN.netUnit)} ₫</span></div>
+    ${tgtU && live ? `<div><b>${full(Math.max(0, Math.ceil((tgtU - C.units) / Math.max(1, S.to - t + 1))))} kệ</b><span>Cần mỗi ngày còn lại</span></div>` : ''}</div></div>`;
   $('#targetInput').addEventListener('change', e => { const v = +String(e.target.value).replace(/\D/g, ''); if (v) store.set(key, v); else store.del(key); renderTarget(); });
 }
 function renderChannels() {
