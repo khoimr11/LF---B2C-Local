@@ -663,7 +663,7 @@ function renderMonthly() {
   const m0 = monthKey(Math.min(...all.map(o => o.day))), m1 = monthKey(todayKey()), mk = []; for (let k = m0; k <= m1; k++) mk.push(k);
   const m = S.monthlyMetric, f = { nmv: o => (o.cx ? 0 : o.v), gmv: o => o.v, units: o => (o.cx ? 0 : o.q) }[m], isMoney = m !== 'units';
   const groups = mk.map(k => all.filter(o => monthKey(o.day) === k)), adsM = mk.map(k => { const a = ADS.filter(r => monthKey(r.day) === k); return { cost: sum(a, r => r.cost), free: sum(a, r => r.free), imp: sum(a, r => r.imp) }; });
-  colChart($('#monthlyChart'), { labels: mk.map(monthLabel), series: [{ vals: groups.map(g => sum(g, f)), color: 'var(--c-brand)' }], line: { vals: adsM.map(a => a.cost), color: 'var(--c-ads)' }, yFmt: isMoney ? short : full, barLabel: isMoney ? short : full, height: 250, every: 1,
+  colChart($('#monthlyChart'), { labels: mk.map(monthLabel), series: [{ vals: groups.map(g => sum(g, f)), color: 'var(--c-brand)' }], line: { vals: adsM.map(a => a.cost), color: 'var(--c-ads)' }, yFmt: isMoney ? short : full, barLabel: isMoney ? short : full, height: 250, 
     tipFn: i => dayTip(monthLabel(mk[i]), groups[i], adsM[i]) + '<div class="tr muted"><span>Bấm để xem tháng này</span></div>',
     onClick: i => setRange(monthStart(mk[i]), monthEnd(mk[i]), 'm' + mk[i]) });
   $('#monthlyLegend').innerHTML = `<span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: ${{ nmv: 'NMV', gmv: 'GMV', units: 'Số sản phẩm' }[m]}</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: chi phí Ads (trục phải)</span>`;
