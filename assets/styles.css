@@ -562,3 +562,18 @@ td.up { color: var(--c-good); font-weight: 600; }
 #skuSection { display: grid; gap: 14px; }
 #skuSection[hidden] { display: none !important; }
 @media (max-width: 900px) { .sku-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* KPI plan table */
+#kpiCard { margin-top: 16px; }
+#kpiCard select { height: 34px; border-radius: 9px; border: 0; background: var(--fill-2); color: var(--label); padding: 0 10px; box-shadow: inset 0 0 0 .5px var(--sep); max-width: 100%; }
+.kpi-mini { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 4px 0 14px; }
+.kpi-mini > div { background: var(--fill-2); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.kpi-mini b { display: block; font-family: var(--font-display); font-size: 18px; }
+.kpi-mini span { font-size: 11.5px; color: var(--label-2); }
+.kpitable tr.b td { font-weight: 600; }
+.kpitable tr.s td:first-child { padding-left: 22px; color: var(--label-2); }
+.kpitable tr.hl td { font-weight: 700; background: var(--fill-2); }
+.kpitable tr.hl2 td { font-weight: 700; background: color-mix(in srgb, var(--c-brand) 14%, transparent); }
+.kpitable .good, .kpi-mini .good { color: var(--c-brand); }
+.kpitable .bad, .kpi-mini .bad { color: var(--c-red, #d03b3b); }
+@media (max-width: 700px) { .kpi-mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

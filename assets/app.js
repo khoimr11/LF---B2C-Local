@@ -397,7 +397,7 @@ function render() {
   $('#activeFilters').innerHTML = filt.map(f => `<span>${esc(f)}</span>`).join('');
   $('#heroNote').textContent = (filt.length ? 'Đang lọc: ' + filt.join(' · ') + ' · ' : '') + `${C.orders} đơn hợp lệ · ${C.units} sản phẩm · ${C.cxN} đơn hủy`;
   syncControls();
-  [renderBiz, renderWaterfall, renderGroups, renderTarget, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
+  [renderBiz, renderWaterfall, renderGroups, renderTarget, renderKpi, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
    renderSkus, renderPromos, renderRegion, renderProv, renderWard, renderHour, renderCarrier, renderExpress, renderReviews, renderAds, renderOrders].forEach(f => { try { f(); } catch (e) { console.error(f.name, e); } });
   if (SHOP !== 'lf') relabel();
 }
@@ -496,6 +496,72 @@ function renderTarget() {
     <div><b style="color:${C.unitNet && C.unitNet < PLAN.netUnit ? 'var(--c-red, #d03b3b)' : 'inherit'}">${C.units ? short(C.unitNet) + ' ₫' : '—'}</b><span>Thực thu/kệ · mục tiêu ${short(PLAN.netUnit)} ₫</span></div>
     ${tgtU && live ? `<div><b>${full(Math.max(0, Math.ceil((tgtU - C.units) / Math.max(1, S.to - t + 1))))} kệ</b><span>Cần mỗi ngày còn lại</span></div>` : ''}</div></div>`;
   $('#targetInput').addEventListener('change', e => { const v = +String(e.target.value).replace(/\D/g, ''); if (v) store.set(key, v); else store.del(key); renderTarget(); });
+}
+/* ===== KPI P&L kệ 3 tầng (bảng kế hoạch T11/2026–T5/2027) ===== */
+const KPI_M = ['2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05'];
+const KPI_PLAN = {
+  units: [95, 300, 555, 333, 400, 480, 537],
+  fx: [3944115, 12455100, 23041935, 13825161, 16606800, 19928160, 22294629],
+  tx: [1795500, 5670000, 10489500, 6293700, 7560000, 9072000, 10149300],
+  sv: [1556100, 4914000, 9090900, 5454540, 6552000, 7862400, 8796060],
+  aff: [2992500, 9450000, 17482500, 10489500, 12600000, 15120000, 16915500],
+  pi: [479940, 1515600, 2803860, 1682316, 2020800, 2424960, 2712924],
+  ads: [1197000, 3780000, 6993000, 4195800, 5040000, 6048000, 6766200]
+};
+const KPI_LIST = 700000, KPI_TAX = 20000000, KPI_COM = 0.03;
+let KPI_SEL = null;
+function kpiPlan(i) { // i = index tháng, hoặc 'all'
+  const ix = i === 'all' ? KPI_M.map((_, j) => j) : [i], g = k => ix.reduce((s, j) => s + KPI_PLAN[k][j], 0);
+  const u = g('units'), nmv = u * PLAN.floor, fee = g('fx') + g('tx') + g('sv') + g('aff') + g('pi'), ads = g('ads'), tax = KPI_TAX * ix.length;
+  const netRev = nmv - fee - ads, com = Math.round(netRev * KPI_COM);
+  return { u, gmv: u * KPI_LIST, nmv, fx: g('fx'), tx: g('tx'), sv: g('sv'), aff: g('aff'), pi: g('pi'), fee, ads, sh: 0, feeAds: fee + ads, tax, netRev, com, profit: netRev - com - tax };
+}
+function kpiActual(a, b) {
+  const R = agg(a, b), gmv = sum(R.ok, o => ((LIST[o.sku] || {}).list || KPI_LIST) * o.q), ads = R.A.paid;
+  const netRev = R.nmv - R.fee - R.sh - ads, com = Math.round(netRev * KPI_COM), months = new Set(); for (let k = a; k <= b; k += 28) months.add(monthKey(k)); months.add(monthKey(b));
+  const tax = KPI_TAX * months.size;
+  return { u: R.units, gmv, nmv: R.nmv, fx: R.fx, tx: R.tx, sv: R.sv, aff: null, pi: R.pi, fee: R.fee, ads, sh: R.sh, feeAds: R.fee + R.sh + ads, tax, netRev, com, profit: netRev - com - tax, orders: R.orders };
+}
+function renderKpi() {
+  const el = $('#kpiCard'); if (!el) return;
+  if (SHOP !== 'lf') { el.innerHTML = ''; return; }
+  const t = todayKey(), curM = KPI_M.indexOf(keyToISO(t).slice(0, 7));
+  if (KPI_SEL === null) KPI_SEL = curM >= 0 ? curM : 0;
+  const all = KPI_SEL === 'all', i = KPI_SEL;
+  const a = all ? isoToKey(KPI_M[0] + '-01') : isoToKey(KPI_M[i] + '-01');
+  const mEnd = all ? monthEnd(monthKey(isoToKey(KPI_M[6] + '-01'))) : monthEnd(monthKey(a));
+  const b = Math.min(mEnd, t), live = t >= a && t < mEnd, el2 = Math.max(1, b - a + 1), span = mEnd - a + 1;
+  const P_ = kpiPlan(i), A_ = t >= a ? kpiActual(a, b) : null, f = live ? span / el2 : 1;
+  const rows = [
+    ['Sản lượng bán (kệ)', 'u', 'n', 'up'], ['GMV niêm yết', 'gmv', 'm', 'up'], ['Doanh thu thực tế (Net GMV)', 'nmv', 'm', 'up', 'b'],
+    ['Phí cố định sàn', 'fx', 'm', 'dn', 's'], ['Phí xử lý giao dịch', 'tx', 'm', 'dn', 's'], ['Phí dịch vụ (gói Voucher Xtra)', 'sv', 'm', 'dn', 's'],
+    ['Hoa hồng Affiliate (10%)', 'aff', 'm', 'dn', 's'], ['Phí hạ tầng / PiShip', 'pi', 'm', 'dn', 's'], ['Tổng chi phí sàn', 'fee', 'm', 'dn', 'b'],
+    ['Voucher shop', 'sh', 'm', 'dn', 's'], ['Chi phí quảng cáo (LF nạp)', 'ads', 'm', 'dn', 's'], ['Tổng chi phí sàn & Ads', 'feeAds', 'm', 'dn', 'b'],
+    ['Thuế khoán', 'tax', 'm', 'dn', 's'], ['Doanh thu thuần thực về (Net Revenue)', 'netRev', 'm', 'up', 'hl'], ['Commission (3%)', 'com', 'm', 'dn', 's'],
+    ['Profit (chưa gồm COGS)', 'profit', 'm', 'up', 'hl2']
+  ];
+  const fmt = (v, k) => v == null ? '<span class="muted">chưa có</span>' : k === 'n' ? full(v) : full(v);
+  const proj = (k, v) => v == null ? null : (k === 'tax' ? v : k === 'com' ? null : v * f);
+  let projNet = A_ ? (A_.netRev) * f : 0; const projProfit = A_ ? projNet - projNet * KPI_COM - A_.tax : 0;
+  const body = rows.map(([l, k, ty, dir, cls]) => {
+    const pv = P_[k], av = A_ ? A_[k] : null; let pj = A_ ? proj(k, av) : null;
+    if (k === 'com' && A_) pj = Math.round(projNet * KPI_COM); if (k === 'profit' && A_) pj = projProfit; if (k === 'netRev' && A_) pj = projNet;
+    const cmp = live ? pj : av, r = pv && cmp != null ? cmp / pv : null;
+    const good = r == null ? '' : (dir === 'up' ? r >= 1 : r <= 1) ? 'good' : 'bad';
+    const rTxt = r == null || !pv ? '–' : (k === 'profit' && pv < 0) ? (cmp >= pv ? '<span class="good">tốt hơn</span>' : '<span class="bad">kém hơn</span>') : `<span class="${good}">${pct(r, 0)}</span>`;
+    return `<tr class="${cls || ''}"><td>${l}</td><td class="r">${fmt(pv, ty)}</td><td class="r">${A_ ? fmt(av, ty) : '–'}</td>${live ? `<td class="r">${pj == null ? '–' : fmt(Math.round(pj), ty)}</td>` : ''}<td class="r">${rTxt}</td></tr>`;
+  }).join('');
+  const ratio = A_ && A_.nmv ? A_.netRev / A_.nmv : null, unitNet = A_ && A_.u ? A_.netRev / A_.u : null;
+  const opts = KPI_M.map((m, j) => `<option value="${j}"${j === i ? ' selected' : ''}>Tháng ${+m.slice(5)}/${m.slice(0, 4)}</option>`).join('') + `<option value="all"${all ? ' selected' : ''}>Tổng lũy kế T11/2026–T5/2027</option>`;
+  el.innerHTML = `<div class="card-h"><div><h3>KPI kế hoạch kệ 3 tầng</h3><p class="card-sub">Bảng KPI so với thực tế Shopee${live ? ` · thực tế đến ${dmy(b)}, dự phóng = thực tế ÷ ${el2} ngày × ${span} ngày` : ''}. % đạt ${live ? 'tính theo dự phóng' : 'tính theo thực tế'}.</p></div>
+    <label class="target-input"><select id="kpiSel" aria-label="Chọn tháng KPI">${opts}</select></label></div>
+    <div class="kpi-mini"><div><b>${A_ ? full(A_.u) : 0} / ${full(P_.u)}</b><span>Kệ thực tế / kế hoạch</span></div>
+      <div><b>${unitNet != null ? short(unitNet) + ' ₫' : '—'}</b><span>Thực về TB/kệ · KH ${short(PLAN.netUnit)} ₫</span></div>
+      <div><b>${ratio != null ? pct(ratio) : '—'}</b><span>Biên thực thu / Net GMV · KH 60,02%</span></div>
+      <div><b class="${A_ && (live ? projProfit : A_.profit) >= P_.profit ? 'good' : 'bad'}">${A_ ? short(live ? projProfit : A_.profit) + ' ₫' : '—'}</b><span>${live ? 'Profit dự phóng' : 'Profit thực tế'} · KH ${short(P_.profit)} ₫</span></div></div>
+    <div class="tbl-scroll"><table class="kpitable"><thead><tr><th>Hạng mục</th><th class="r">Kế hoạch</th><th class="r">Thực tế</th>${live ? '<th class="r">Dự phóng</th>' : ''}<th class="r">% đạt</th></tr></thead><tbody>${body}</tbody></table></div>
+    <p class="card-sub" style="margin-top:10px">Thực tế: Phí dịch vụ Shopee gộp gói Voucher Xtra; Affiliate chưa có trong dữ liệu đơn. Ads tính phần LF nạp (không gồm Ads Shopee tặng). Net Revenue thực tế đã trừ thêm voucher shop. Thuế khoán 20 tr/tháng.</p>`;
+  $('#kpiSel').addEventListener('change', e => { KPI_SEL = e.target.value === 'all' ? 'all' : +e.target.value; renderKpi(); });
 }
 function renderChannels() {
   const rows = [['Shopee', C.nmv, true], ['TikTok Shop', 0, false], ['Lazada', 0, false], ['Website', 0, false]];
