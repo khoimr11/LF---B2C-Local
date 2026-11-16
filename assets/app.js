@@ -99,31 +99,31 @@ function relabel() {
    Mỗi dòng đơn: [sku, sl, giá, item_id, model_id, cờ]. SKU hiệu lực lấy theo phân loại hiện tại trong catalog
    (item_id/model_id) để sửa các dòng chỉ mang SKU cha; tách hậu tố _COMBOX2 (bộ 2 cái), SKU ghép bằng "-" (bộ nhiều
    sản phẩm), hậu tố màu (-Green); quà tặng (giá 0 / GIFT...) để riêng. */
-let CATALOG = [], MIDX = {}, LIDX = {}, MASTER = {}, MAPSTAT = { lines: 0, mapped: 0, fromModel: 0, unknown: {} };
+let CATALOG = [], MIDX = {}, LIDX = {}, MASTER = {}, MAPSTAT = { lines: 0, mapped: 0, bySku: 0, fromModel: 0, unknown: {} };
 const CODE_RE = /^[A-Z]{2,5}\d{2,}[A-Z0-9]*$/;
 const GROUPS = [[/máy ảnh|camera(?!.*(phụ kiện|ống kính))/i, 'Máy ảnh'], [/ống kính$|^ống kính/i, 'Ống kính'], [/ống nhòm|kính thiên văn|rangefinder|đo khoảng cách/i, 'Ống nhòm & quang học'], [/kính lọc|loa che|nắp ống kính|ngàm/i, 'Phụ kiện ống kính'], [/.*/, 'Phụ kiện & khác']];
 const groupOf = cat => cat ? GROUPS.find(g => g[0].test(cat.split(' > ').slice(-1)[0]) || (g[1] === 'Máy ảnh' && /Máy ảnh >/.test(cat)))[1] : 'Phụ kiện & khác';
 const LINE_RE = /\b(Z\s?\d{1,2}\s?II|Z\s?\d{1,2}|Zfc|Zf|Z\s?f|D\d{3,4}|COOLPIX\s?[A-Z]?\d+|Prostaff\s?P?\d+[a-z]?|PROSTAFF\s?\w+|Monarch\s?(?:HG|M\d|\d+)?|MONARCH\s?\w+|Aculon\s?\w+|ACULON\s?\w+|Travelite|Sportstar|Coolshot\s?\w+|Action\s?EX|Z\s?DX|NIKKOR\s?Z)/i;
 function cleanTitle(t) { return String(t || '').replace(/^(Máy ảnh( kỹ thuật số| không gương lật)?|Ống kính|Ống nhòm( 2 mắt)?( cao cấp)?|Kính lọc( Filter)?|Ống Nhòm|Ống Nhóm)\s+/i, '').replace(/\s*(chính hãng|chuyên dụng).*$/i, '').split(/\s[-|–]\s/)[0].trim().slice(0, 52); }
 function normalizeSkus(d) {
-  CATALOG = d.catalog || []; MIDX = {}; LIDX = {}; MASTER = {}; MAPSTAT = { lines: 0, mapped: 0, fromModel: 0, unknown: {} };
+  CATALOG = d.catalog || []; MIDX = {}; LIDX = {}; MASTER = {}; MAPSTAT = { lines: 0, mapped: 0, bySku: 0, fromModel: 0, unknown: {} };
   CATALOG.forEach(l => { const [iid, name, psku, st, sold, cat, models] = l; LIDX[iid] = { iid, name, psku, st, sold, cat, models, group: groupOf(cat), n: models.length };
     models.forEach(m => { MIDX[m[0]] = { iid, mid: m[0], mname: m[1], sku: m[2] || (models.length === 1 ? psku : ''), price: m[3], promo: m[4], stock: m[5], sold: m[6] }; }); });
   (d.products || []).forEach(p => { if (!MIDX[p[1]]) MIDX[p[1]] = { iid: p[0], mid: p[1], mname: p[3], sku: p[4], price: p[5], promo: p[6], stock: p[7], sold: 0, name: p[2] }; });
   if (!CATALOG.length) return;
   const parse = raw => { let s = String(raw || '').trim(), mult = 1; const cm = s.match(/_COMBOX(\d+)$/i); if (cm) { mult = +cm[1]; s = s.slice(0, cm.index); }
-    const tok = s.split('-'), codes = tok.filter(x => CODE_RE.test(x)), attrs = tok.filter(x => x && !CODE_RE.test(x)); return { base: codes[0] || s, codes: codes.length ? codes : [s], attrs, mult }; };
+    const tok = s.split('-'), codes = tok.filter(x => CODE_RE.test(x)), attrs = tok.filter(x => x && !CODE_RE.test(x)); return { base: codes.length > 1 ? codes.join('-') : (codes[0] || s), codes: codes.length ? codes : [s], attrs, mult }; };
   const info = (code, mid, iid) => { const m = MIDX[mid] || {}, l = LIDX[m.iid || iid] || {};
     if (!MASTER[code]) MASTER[code] = { code, names: {}, group: l.group || groupOf(l.cat), cat: l.cat || '', line: '', listings: new Set(), mids: new Set() };
     const M = MASTER[code]; const nm = (cleanTitle(l.name || m.name) + (l.n > 1 && m.mname ? ' · ' + m.mname : '')).trim(); if (nm) M.names[nm] = (M.names[nm] || 0) + 1;
-    if (l.iid) M.listings.add(l.iid); if (mid) M.mids.add(mid); if (!M.line) { const lm = ((l.name || m.name || '') + ' ' + (m.mname || '')).match(LINE_RE); if (lm) M.line = lm[1].replace(/\s+/g, ' ').replace(/^z\s?/i, 'Z').replace(/ ?II$/i, ' II'); }
+    if (l.iid) M.listings.add(l.iid); if (mid) M.mids.add(mid); if (!M.line && l.group && l.group !== 'Phụ kiện & khác' && l.group !== 'Phụ kiện ống kính') { const lm = ((l.name || m.name || '') + ' ' + (m.mname || '')).match(LINE_RE); if (lm) M.line = lm[1].replace(/\s+/g, ' ').replace(/^z\s?/i, 'Z').replace(/ ?II$/i, ' II'); }
     if (l.group && M.group === 'Phụ kiện & khác') M.group = l.group; return M; };
   // gán SKU chuẩn cho mọi phân loại đang có trong catalog (để bảng SKU có cả mã chưa bán)
   Object.values(MIDX).forEach(m => { if (m.sku) info(parse(m.sku).base, m.mid, m.iid); });
   ORDERS.forEach(o => {
     const raw = o._items || []; if (!raw.length) { o.skus = o.sku ? [o.sku] : []; return; }
     o.lines = raw.map(([sku, q, p, iid, mid, fl]) => { const cm = (MIDX[mid] || {}).sku, eff = cm || sku, P = parse(eff), gift = !p || /^GIFT/i.test(eff);
-      MAPSTAT.lines++; if (cm || MIDX[mid]) MAPSTAT.mapped++; else MAPSTAT.unknown[eff] = (MAPSTAT.unknown[eff] || 0) + q; if (cm && cm !== sku) MAPSTAT.fromModel++;
+      MAPSTAT.lines++; if (cm || MIDX[mid]) MAPSTAT.mapped++; else if (P.codes.every(c => CODE_RE.test(c)) || gift) MAPSTAT.bySku++; else MAPSTAT.unknown[eff] = (MAPSTAT.unknown[eff] || 0) + q; if (cm && cm !== sku) MAPSTAT.fromModel++;
       const M = info(P.base, mid, iid); return { raw: sku, eff, master: P.base, comps: P.codes, attrs: P.attrs, units: q * P.mult, q, p, v: q * p, iid, mid, gift, bundle: P.codes.length > 1 || P.mult > 1, flag: fl || '', M }; });
     const sell = o.lines.filter(l => !l.gift);
     o.skus = [...new Set(sell.map(l => l.master))]; o.sku = o.skus.join('/'); o.q = sell.reduce((s, l) => s + l.units, 0) || o.q;
@@ -139,9 +139,9 @@ function renderSkus() {
   const by = new Map(); sell.forEach(l => { const k = l.master; if (!by.has(k)) by.set(k, { M: l.M, q: 0, v: 0, n: new Set(), lst: {}, prices: [] }); const x = by.get(k); x.q += l.units; x.v += l.v; x.n.add(l.o.sn); x.lst[l.iid] = (x.lst[l.iid] || 0) + l.units; x.prices.push(l.p / (l.units / l.q)); });
   const grp = {}; by.forEach(x => { const g = x.M.group; grp[g] = grp[g] || { v: 0, q: 0, n: 0 }; grp[g].v += x.v; grp[g].q += x.q; grp[g].n++; });
   const ln = {}; by.forEach(x => { const k = x.M.line || '(khác)'; ln[k] = ln[k] || { v: 0, q: 0, skus: new Set() }; ln[k].v += x.v; ln[k].q += x.q; ln[k].skus.add(x.M.code); });
-  const gifts = lines.filter(l => l.gift), bundles = sell.filter(l => l.bundle), mapRate = MAPSTAT.lines ? MAPSTAT.mapped / MAPSTAT.lines : 1;
+  const gifts = lines.filter(l => l.gift), bundles = sell.filter(l => l.bundle), mapRate = MAPSTAT.lines ? (MAPSTAT.mapped + MAPSTAT.bySku) / MAPSTAT.lines : 1;
   const active = CATALOG.filter(l => l[3] === 1).length;
-  $('#skuTiles').innerHTML = [['SKU chuẩn đã bán', String(by.size), `${sum([...by.values()], x => x.q)} sản phẩm · ${C.orders} đơn`], ['Khớp SKU', pct(mapRate, 1), `${MAPSTAT.mapped}/${MAPSTAT.lines} dòng đơn (mọi thời gian)`, mapRate === 1 ? 'free' : 'fs'],
+  $('#skuTiles').innerHTML = [['SKU chuẩn đã bán', String(by.size), `${sum([...by.values()], x => x.q)} sản phẩm · ${C.orders} đơn`], ['Khớp SKU', pct(mapRate, 1), `${MAPSTAT.mapped + MAPSTAT.bySku}/${MAPSTAT.lines} dòng đơn (mọi thời gian)`, mapRate === 1 ? 'free' : 'fs'],
     ['Listing đang bán', String(active), `${CATALOG.length} listing · ${Object.keys(MIDX).length} phân loại`], ['Bộ / combo', String(bundles.length), bundles.length ? short(sum(bundles, l => l.v)) + ' ₫ NMV' : 'không có trong kỳ'], ['Quà tặng kèm', String(sum(gifts, l => l.q)), gifts.length ? 'món 0₫, không tính NMV' : 'không có trong kỳ']]
     .map(([l, v, f, k]) => `<div class="tile ${k || ''}"><span class="tile-l">${l}</span><span class="tile-v">${v}</span><span class="tile-f"><em>${f}</em></span></div>`).join('');
   barList($('#groupChart'), Object.entries(grp).sort((a, b) => b[1].v - a[1].v).map(([g, x]) => ({ key: g, l: g, v: x.v, sub: `${x.n} SKU · ${x.q} sp`, label: `${short(x.v)} ₫ <span>${pct(x.v / nmv, 0)}</span>`, c: SKU_GROUP === g ? 'var(--c-brand)' : 'var(--c-blue)' })),
@@ -153,19 +153,19 @@ function renderSkus() {
   $('#masterSub').textContent = `${rows.length} SKU chuẩn${SKU_GROUP ? ' · ' + SKU_GROUP : ''} · cộng dồn mọi listing và phân loại bán ra cùng một mã`;
   $('#masterTable').innerHTML = rows.length ? `<table><thead><tr><th>SKU chuẩn</th><th>Sản phẩm</th><th>Nhóm</th><th class="r">SL</th><th class="r">NMV</th><th class="r">% NMV</th><th class="r">Giá TB</th><th class="r">Listing bán</th><th class="r">Tồn</th></tr></thead><tbody>` +
     rows.map(x => { const nl = Object.keys(x.lst).length, lstTxt = Object.entries(x.lst).map(([iid, u]) => { const L = LIDX[iid] || {}; return `${L.n > 1 ? 'gộp ' + L.n + ' phân loại' : 'riêng'}: ${u}`; }).join(' · ');
-      return `<tr data-sku="${esc(x.M.code)}"><td class="sn">${esc(x.M.code)}</td><td><span class="cell2">${esc(x.M.name)}<em>${esc(x.M.line || '')}</em></span></td><td>${esc(x.M.group)}</td><td class="r"><b>${x.q}</b></td><td class="r">${full(x.v)}</td><td class="r">${pct(x.v / nmv)}</td><td class="r">${short(x.v / x.q)}</td><td class="r" title="${esc(lstTxt)}">${nl}${nl > 1 ? ' <span class="pill">' + esc(lstTxt) + '</span>' : ''}</td><td class="r">${x.M.stock ?? '–'}</td></tr>`; }).join('') + '</tbody></table>' : '<p class="empty-note">Không có SKU nào khớp bộ lọc.</p>';
+      return `<tr data-sku="${esc(x.M.code)}"><td class="sn">${esc(x.M.code)}</td><td><span class="cell2">${esc(x.M.name)}<em>${esc(x.M.line || '')}</em></span></td><td>${esc(x.M.group)}</td><td class="r"><b>${x.q}</b></td><td class="r">${full(x.v)}</td><td class="r">${pct(x.v / nmv)}</td><td class="r">${short(x.v / x.q)}</td><td class="r" title="${esc(lstTxt)}"><span class="cell2">${nl}<em>${esc(lstTxt)}</em></span></td><td class="r">${x.M.stock ?? '–'}</td></tr>`; }).join('') + '</tbody></table>' : '<p class="empty-note">Không có SKU nào khớp bộ lọc.</p>';
   $$('#masterTable tr[data-sku]').forEach(tr => tr.addEventListener('click', () => { S.sku = S.sku === tr.dataset.sku ? '' : tr.dataset.sku; S.page = 0; $('#skuSel').value = S.sku; render(); }));
   const byL = new Map(); sell.forEach(l => { if (!byL.has(l.iid)) byL.set(l.iid, { q: 0, v: 0, skus: new Set() }); const x = byL.get(l.iid); x.q += l.units; x.v += l.v; x.skus.add(l.master); });
   const lrows = [...byL.entries()].sort((a, b) => b[1].v - a[1].v);
   $('#listingTable').innerHTML = lrows.length ? `<table><thead><tr><th>Listing</th><th class="r">Phân loại</th><th class="r">SL</th><th class="r">NMV</th></tr></thead><tbody>` +
     lrows.map(([iid, x]) => { const L = LIDX[iid] || {}; return `<tr><td><span class="cell2">${esc(cleanTitle(L.name) || iid)}<em>${L.n > 1 ? 'Listing gộp · ' : 'Listing riêng · '}${[...x.skus].map(esc).join(', ')}${L.st && L.st !== 1 ? ' · đã ẩn' : ''}</em></span></td><td class="r">${L.n || '–'}</td><td class="r">${x.q}</td><td class="r">${full(x.v)}</td></tr>`; }).join('') + '</tbody></table>' : '<p class="empty-note">Chưa có đơn.</p>';
   const unk = Object.entries(MAPSTAT.unknown);
-  $('#mapSub').textContent = `${MAPSTAT.mapped}/${MAPSTAT.lines} dòng đơn khớp phân loại trong catalog · ${MAPSTAT.fromModel} dòng được sửa từ SKU cha sang SKU phân loại`;
+  $('#mapSub').textContent = `Mọi thời gian: ${MAPSTAT.mapped} dòng khớp phân loại đang có trên Shopee · ${MAPSTAT.bySku} dòng khớp theo SKU ghi trên đơn (phân loại đã xóa/đổi) · ${Object.keys(MAPSTAT.unknown).length} SKU chưa nhận ra · ${MAPSTAT.fromModel} dòng được sửa từ SKU cha sang SKU phân loại`;
   const combos = [...by.values()].filter(x => x.M.code && sell.some(l => l.master === x.M.code && l.bundle));
   $('#mapCheck').innerHTML = `<div class="mrows">` +
-    (unk.length ? unk.map(([k, n]) => `<div class="mr"><span class="mr-k">Chưa nhận ra: <b>${esc(k)}</b></span><span class="mr-v">${n} sp</span><span></span><span></span></div>`).join('') : `<div class="mr"><span class="mr-k">Mọi dòng đơn đều khớp một phân loại trong catalog</span><span class="mr-v up">✓</span><span></span><span></span></div>`) +
-    sell.filter(l => l.bundle).slice(0, 8).map(l => `<div class="mr"><span class="mr-k">Bộ ${esc(l.eff)} → ${l.mult > 1 ? l.units + ' × ' + esc(l.master) : l.comps.map(esc).join(' + ')}</span><span class="mr-v">${l.q} bộ</span><span></span><span></span></div>`).join('') +
-    `</div><p class="foot-note">SKU chuẩn = SKU của phân loại hiện tại trên Shopee (tra theo item_id + model_id); hậu tố _COMBOXn tính n sản phẩm; SKU ghép bằng "-" là bộ nhiều sản phẩm, tính theo mã đầu tiên. Món 0₫ hoặc mã GIFT… là quà tặng, không tính NMV.</p>`;
+    (unk.length ? unk.map(([k, n]) => `<div class="mr"><span class="mr-k">Chưa nhận ra: <b>${esc(k || '(trống)')}</b></span><span class="mr-v">${n} sp</span><span></span><span></span></div>`).join('') : `<div class="mr"><span class="mr-k">100% dòng đơn đã quy về SKU chuẩn</span><span class="mr-v up">✓</span><span></span><span></span></div>`) +
+    sell.filter(l => l.bundle).slice(0, 8).map(l => `<div class="mr"><span class="mr-k">Bộ ${esc(l.eff)} → ${l.units / l.q > 1 ? (l.units / l.q) + ' × ' + esc(l.comps[0]) : l.comps.map(esc).join(' + ')}</span><span class="mr-v">${l.q} bộ</span><span></span><span></span></div>`).join('') +
+    `</div><p class="foot-note">SKU chuẩn = SKU của phân loại hiện tại trên Shopee (tra theo item_id + model_id); hậu tố _COMBOXn tính n sản phẩm cùng mã; SKU ghép bằng "-" là một bộ (combo) riêng, liệt kê từng mã thành phần. Món 0₫ hoặc mã GIFT… là quà tặng, không tính NMV.</p>`;
 }
 
 function prepare(d) {
