@@ -514,3 +514,40 @@ td.up { color: var(--c-good); font-weight: 600; }
   .split-hero .sh b { font-size: 18px; }
   .hero { align-items: flex-start; }
 }
+
+/* ===== Shop switcher ===== */
+.side-id { min-width: 0; flex: 1; }
+.shop-switch { position: relative; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; cursor: pointer; border-radius: 8px; padding: 1px 4px 1px 0; }
+.shop-switch .side-title-text { font-weight: 700; font-size: 15px; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-switch select { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; font-size: 16px; }
+.shop-switch svg { width: 16px; height: 16px; color: var(--label-2); flex: none; stroke-width: 2.2; }
+.shop-switch:has(select:disabled) { cursor: default; } .shop-switch:has(select:disabled) svg { display: none; }
+.shop-switch:hover:not(:has(select:disabled)) { background: var(--fill-2); }
+.side-logo { object-fit: contain; border-radius: 8px; }
+
+/* ===== Nikon theme: black & Nikon yellow ===== */
+:root[data-shop="nikon"] {
+  --c-brand: #b38f00; --c-brand-2: #d9ad00; --c-brand-soft: rgba(255, 225, 0, .22);
+  --bg: #f4f4f2; --bg-grad: radial-gradient(1100px 600px at 6% -12%, #fff6b8 0%, transparent 58%), radial-gradient(900px 520px at 100% -6%, #ececec 0%, transparent 55%), #f4f4f2;
+  --lead-grad: linear-gradient(150deg, #ffe94d 0%, #ffe100 50%, #f2cf00 100%);
+}
+@media (prefers-color-scheme: dark) { :root[data-shop="nikon"]:not([data-theme="light"]) {
+  --c-brand: #ffe100; --c-brand-2: #fff07a; --c-brand-soft: rgba(255, 225, 0, .16);
+  --bg: #000; --bg-grad: radial-gradient(1100px 600px at 6% -12%, #2a2400 0%, transparent 58%), #000; --card: #121212; --card-2: #1c1c1c;
+  --lead-grad: linear-gradient(150deg, #ffe94d 0%, #ffe100 55%, #e6c800 100%);
+} }
+:root[data-shop="nikon"][data-theme="dark"] {
+  --c-brand: #ffe100; --c-brand-2: #fff07a; --c-brand-soft: rgba(255, 225, 0, .16);
+  --bg: #000; --bg-grad: radial-gradient(1100px 600px at 6% -12%, #2a2400 0%, transparent 58%), #000; --card: #121212; --card-2: #1c1c1c;
+  --lead-grad: linear-gradient(150deg, #ffe94d 0%, #ffe100 55%, #e6c800 100%);
+}
+[data-shop="nikon"] .kpi.lead { color: #111; box-shadow: 0 12px 30px rgba(120, 100, 0, .28); }
+[data-shop="nikon"] .kpi.lead .kpi-l, [data-shop="nikon"] .kpi.lead .kpi-f, [data-shop="nikon"] .kpi.lead .kpi-v small { color: rgba(0, 0, 0, .66); }
+[data-shop="nikon"] .kpi.lead .badge { background: rgba(0, 0, 0, .12); color: #111; }
+[data-shop="nikon"] .presets button.on { background: #111; color: #ffe100; }
+[data-shop="nikon"] .btn-primary { background: #111; color: #ffe100; }
+[data-shop="nikon"] .side-nav a.active { background: #111; color: #ffe100; }
+[data-shop="nikon"] .side-nav a.active svg { color: #ffe100; }
+[data-shop="nikon"] .wf-r.total .wf-v { color: var(--label); }
+[data-shop="nikon"] .mcard::before { background: #ffe100; }
+[data-shop="nikon"] .side-logo { width: 46px; height: 46px; }

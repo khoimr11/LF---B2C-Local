@@ -73,8 +73,13 @@ async function decryptWith(raw, file) {
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(file.iv) }, key, b64d(file.ct));
   return JSON.parse(new TextDecoder().decode(pt));
 }
-async function fetchEnc() {
-  const r = await fetch('data/data.enc.json?ts=' + Date.now(), { cache: 'no-store' });
+const SHOPS = {
+  lf: { file: 'data/data.enc.json', name: 'Living Furniture', sub: 'Shopee · living_furniture', logo: 'assets/logo.png', slug: 'living-furniture' },
+  nikon: { file: 'data/nikon.enc.json', name: 'Nikon Việt Nam', sub: 'Shopee · Nikon', logo: 'assets/nikon.png', slug: 'nikon' }
+};
+let SHOP = 'lf', KEYS = {}, BOUND = false;
+async function fetchEnc(shop = 'lf') {
+  const r = await fetch(SHOPS[shop].file + '?ts=' + Date.now(), { cache: 'no-store' });
   if (!r.ok) throw new Error('Không tải được dữ liệu (' + r.status + ')');
   return r.json();
 }
@@ -321,7 +326,7 @@ function seriesBy(f) { const out = Array(C.days).fill(0); C.ok.forEach(o => { co
 function renderBiz() {
   const vv = v => { const t = short(v); const m = t.match(/^(.*?)( tr| tỷ|k)?$/); return `${m[1]}<small>${m[2] || ''} ₫</small>`; };
   const K = [
-    { l: 'NMV thực nhận', v: C.net, d: P && delta(C.net, P.net), f: `${pct(C.net / C.nmv)} NMV sau phí sàn, voucher shop, Ads LF nạp`, cls: 'lead', sp: seriesBy(o => o.prodNet), c: '#ffffff', tip: [['NMV', money(C.nmv)], ['− Phí sàn', money(C.fee)], ['− Voucher shop', money(C.sh)], ['− Ads LF nạp', money(C.A.paid)], ['= NMV thực nhận', money(C.net)]] },
+    { l: 'NMV thực nhận', v: C.net, d: P && delta(C.net, P.net), f: `${pct(C.net / C.nmv)} NMV sau phí sàn, voucher shop, Ads LF nạp`, cls: 'lead', sp: seriesBy(o => o.prodNet), c: SHOP === 'nikon' ? '#111111' : '#ffffff', tip: [['NMV', money(C.nmv)], ['− Phí sàn', money(C.fee)], ['− Voucher shop', money(C.sh)], ['− Ads LF nạp', money(C.A.paid)], ['= NMV thực nhận', money(C.net)]] },
     { l: 'NMV', v: C.nmv, d: P && delta(C.nmv, P.nmv), f: `${C.orders} đơn · ${C.units} sản phẩm · AOV ${short(C.aov)} ₫`, sp: seriesBy(o => o.v), c: 'var(--c-brand)', tip: [['NMV', money(C.nmv)], ['GMV (gồm hủy)', money(C.gmv)], ['Đơn hợp lệ', C.orders], ['Sản phẩm', C.units]] },
     { l: 'Phí sàn Shopee', v: C.fee, d: P && delta(C.fee, P.fee, true), f: `${pct(C.take)} NMV`, sp: seriesBy(o => o.fee), c: 'var(--c-ads)', tip: [['Phí cố định', money(C.fx)], ['Phí dịch vụ', money(C.sv)], ['Phí xử lý GD', money(C.tx)], ['PiShip', money(C.pi)], ['Tổng', money(C.fee) + ' · ' + pct(C.take)]] },
     { l: 'Thực thu / sản phẩm', v: C.unitNet, d: P && delta(C.unitNet, P.unitNet), f: `Giá bán TB ${short(C.asp)} ₫ · giữ lại ${pct(C.prodNet / C.nmv)}`, sp: seriesBy(o => o.prodNet), c: 'var(--c-blue)', tip: [['Giá bán TB/sp', money(C.asp)], ['Voucher shop TB/sp', money(C.units ? C.sh / C.units : 0)], ['Phí sàn TB/sp', money(C.units ? C.fee / C.units : 0)], ['Thực thu TB/sp', money(C.unitNet)]] }
@@ -721,7 +726,8 @@ function bind() {
   let qt; $('#orderSearch').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { S.q = e.target.value; S.page = 0; renderOrders(); }, 150); });
   $('#exportBtn').addEventListener('click', exportCSV);
   $('#themeBtn').addEventListener('click', () => { const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; store.set('lf-theme', r.dataset.theme); });
-  $('#logoutBtn').addEventListener('click', () => { store.del('lf-key'); location.reload(); });
+  $('#logoutBtn').addEventListener('click', () => { store.del('lf-key'); store.del('lf-keys'); location.reload(); });
+  $('#shopSel').addEventListener('change', e => loadShop(e.target.value));
   $('#openFilters').addEventListener('click', openSheet); $('#tabFilters').addEventListener('click', openSheet); $('#closeFilters').addEventListener('click', closeSheet); $('#scrim').addEventListener('click', closeSheet);
   const secs = ['overview', 'sales', 'products', 'promos', 'customers', 'reviews', 'ads', 'orders'], names = { overview: 'Tổng quan', sales: 'Doanh số', products: 'Sản phẩm & giá', promos: 'Khuyến mãi & Flash Sale', customers: 'Khách hàng & khu vực', reviews: 'Đánh giá', ads: 'Shopee Ads', orders: 'Đơn hàng' };
   const onScroll = () => { $('#toolbar').classList.toggle('scrolled', scrollY > 60); let cur = 'overview'; secs.forEach(id => { const el = document.getElementById(id); if (el && el.getBoundingClientRect().top < 140) cur = id; });
@@ -737,16 +743,25 @@ function exportCSV() {
   const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
   const lines = rows.map(o => [o.sn, tsLabel(o.t), o.s, o.ward, o.prov, o.region, o.sku, o.m, o.q, o.p, o.cx ? 0 : o.v, o.paid, o.fx, o.sv, o.tx, o.pi, o.fee, o.sh, o.pv, o.cx ? 0 : o.prodNet, o.shipNet, o.cx ? 0 : o.income, o.fin ? 'có' : 'ước tính', o.recon == null ? '' : o.recon === 0 ? 'khớp' : 'lệch ' + o.recon, o.car].map(q).join(','));
   const blob = new Blob(['﻿' + [head.map(q).join(',')].concat(lines).join('\n')], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `living-furniture-shopee_${keyToISO(S.from)}_${keyToISO(S.to)}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${SHOPS[SHOP].slug}-shopee_${keyToISO(S.from)}_${keyToISO(S.to)}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
 /* ================= boot ================= */
+function applyShop(shop) {
+  SHOP = shop; const c = SHOPS[shop]; document.documentElement.dataset.shop = shop; store.set('lf-shop', shop);
+  $$('.side-logo').forEach(i => { i.src = c.logo; i.alt = c.name; }); $('.side-sub').textContent = c.sub;
+  const avail = Object.keys(SHOPS).filter(k => KEYS[k]);
+  $('#shopSel').innerHTML = avail.map(k => `<option value="${k}"${k === shop ? ' selected' : ''}>${esc(SHOPS[k].name)}</option>`).join('');
+  $('#shopSel').disabled = avail.length < 2; $('.side-title-text').textContent = c.name;
+  document.title = c.name + ' · Shopee Performance';
+}
 function start(d) {
   prepare(d);
   const at = META.at ? new Date((META.at + TZ) * 1000) : null;
-  $('#syncInfo').innerHTML = at ? `Đồng bộ lúc <b>${p2(at.getUTCHours())}:${p2(at.getUTCMinutes())} ${p2(at.getUTCDate())}/${p2(at.getUTCMonth() + 1)}/${at.getUTCFullYear()}</b>` : '—';
+  $('#syncInfo').innerHTML = at && META.at ? `Đồng bộ lúc <b>${p2(at.getUTCHours())}:${p2(at.getUTCMinutes())} ${p2(at.getUTCDate())}/${p2(at.getUTCMonth() + 1)}/${at.getUTCFullYear()}</b>` : 'Chưa có dữ liệu đồng bộ';
   S.cmp = store.get('lf-cmp') || 'prev';
-  buildSelectors(); bind();
+  Object.assign(S, { sku: '', region: '', carrier: '', hour: null, prov: '', q: '', status: '', page: 0 });
+  buildSelectors(); if (!BOUND) { bind(); BOUND = true; }
   let saved = null; try { saved = JSON.parse(store.get('lf-range') || 'null'); } catch (e) {}
   if (saved && saved.p && saved.p !== 'custom' && !saved.p.startsWith('m')) { const [a, b] = presetRange(saved.p); Object.assign(S, { from: a, to: b, preset: saved.p }); }
   else if (saved) Object.assign(S, { from: saved.a, to: saved.b, preset: saved.p });
@@ -754,21 +769,44 @@ function start(d) {
   $('#login').hidden = true; $('#app').hidden = false; document.body.classList.add('fade-in');
   render();
 }
+async function loadShop(shop) {
+  if (!KEYS[shop]) shop = Object.keys(SHOPS).find(k => KEYS[k]);
+  const file = await fetchEnc(shop), d = await decryptWith(KEYS[shop], file);
+  applyShop(shop); start(d); scrollTo(0, 0);
+}
+const keysToStore = () => JSON.stringify(Object.fromEntries(Object.entries(KEYS).map(([k, v]) => [k, b64e(v)])));
+function keysFromStore() {
+  const j = store.get('lf-keys') || store.get('lf-keys', true);
+  if (j) { try { return Object.fromEntries(Object.entries(JSON.parse(j)).map(([k, v]) => [k, b64d(v)])); } catch (e) {} }
+  const legacy = store.get('lf-key') || store.get('lf-key', true); return legacy ? { lf: b64d(legacy) } : null;
+}
 async function tryAuto() {
-  const saved = store.get('lf-key') || store.get('lf-key', true); if (!saved) return false;
-  try { const file = await fetchEnc(); start(await decryptWith(b64d(saved), file)); return true; } catch (e) { store.del('lf-key'); return false; }
+  const k = keysFromStore(); if (!k) return false;
+  KEYS = k;
+  try { await loadShop(store.get('lf-shop') || 'lf'); return true; } catch (e) { store.del('lf-key'); store.del('lf-keys'); KEYS = {}; return false; }
+}
+// keyring: each user entry wraps the data keys of the shops that user may open
+async function unlock(user, pass) {
+  try {
+    const kr = await (await fetch('data/keyring.json?ts=' + Date.now(), { cache: 'no-store' })).json();
+    const tries = kr.users.map(async u => { const raw = await deriveRaw(user, pass, b64d(u.salt), u.iter); const j = await decryptWith(raw, u); return Object.fromEntries(Object.entries(j.shops).map(([k, v]) => [k, b64d(v)])); });
+    return await Promise.any(tries);
+  } catch (e) {
+    const file = await fetchEnc('lf'), raw = await deriveRaw(user, pass, b64d(file.salt), file.iter || 250000);
+    await decryptWith(raw, file); return { lf: raw };
+  }
 }
 function loginUI() {
   $('#pwToggle').addEventListener('click', () => { const i = $('#password'); i.type = i.type === 'password' ? 'text' : 'password'; $('#pwToggle').textContent = i.type === 'password' ? 'Hiện' : 'Ẩn'; });
   $('#loginForm').addEventListener('submit', async e => {
     e.preventDefault(); const err = $('#loginErr'), btn = $('#loginBtn'); err.hidden = true;
     const email = $('#email').value, pass = $('#password').value;
-    if (!email || !pass) { err.textContent = 'Nhập email và mật khẩu.'; err.hidden = false; return; }
+    if (!email || !pass) { err.textContent = 'Nhập tài khoản và mật khẩu.'; err.hidden = false; return; }
     btn.disabled = true; btn.textContent = 'Đang mở dữ liệu…';
     try {
-      const file = await fetchEnc(), raw = await deriveRaw(email, pass, b64d(file.salt), file.iter || 250000);
-      let d; try { d = await decryptWith(raw, file); } catch (x) { throw new Error('Email hoặc mật khẩu không đúng.'); }
-      store.set('lf-key', b64e(raw), !$('#remember').checked); start(d);
+      let k; try { k = await unlock(email, pass); } catch (x) { throw new Error('Tài khoản hoặc mật khẩu không đúng.'); }
+      KEYS = k; store.del('lf-key'); store.set('lf-keys', keysToStore(), !$('#remember').checked);
+      await loadShop(store.get('lf-shop') || 'lf');
     } catch (x) { err.textContent = x.message || 'Không mở được dữ liệu.'; err.hidden = false; btn.disabled = false; btn.textContent = 'Đăng nhập'; }
   });
 }

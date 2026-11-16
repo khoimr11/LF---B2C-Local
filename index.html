@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=8">
+<link rel="stylesheet" href="assets/styles.css?v=9">
 </head>
 <body>
 
@@ -24,8 +24,8 @@
   <form class="login-card glass" id="loginForm" autocomplete="on" novalidate>
     <img class="login-logo" src="assets/logo.png" alt="Living Furniture" width="132" height="98">
     <h1>Shopee Performance</h1>
-    <p class="login-sub">Đăng nhập để xem báo cáo bán hàng của Living Furniture.</p>
-    <label class="field"><span>Email</span><input id="email" name="email" type="email" autocomplete="username" required placeholder="name@vhg.vn"></label>
+    <p class="login-sub">Đăng nhập để xem báo cáo bán hàng Shopee.</p>
+    <label class="field"><span>Email hoặc tên đăng nhập</span><input id="email" name="email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="name@vhg.vn"></label>
     <label class="field"><span>Mật khẩu</span>
       <span class="pw"><input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Mật khẩu"><button type="button" class="pw-toggle" id="pwToggle" aria-label="Hiện mật khẩu">Hiện</button></span>
     </label>
@@ -41,7 +41,7 @@
   <aside class="sidebar glass" id="sidebar" aria-label="Bộ lọc và điều hướng">
     <div class="side-head">
       <img src="assets/logo.png" alt="Living Furniture" class="side-logo" width="64" height="48">
-      <div><div class="side-title">Living Furniture</div><div class="side-sub">Shopee · living_furniture</div></div>
+      <div class="side-id"><label class="shop-switch" title="Chọn shop"><span class="side-title-text">Living Furniture</span><select id="shopSel" aria-label="Chọn shop"></select><svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></label><div class="side-sub">Shopee · living_furniture</div></div>
       <button class="icon-btn only-mobile" id="closeFilters" aria-label="Đóng bộ lọc"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
 
