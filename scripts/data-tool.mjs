@@ -67,6 +67,7 @@ function merge(data, add) {
     for (const k of ['fs', 'disc', 'vch']) { const m = new Map((P[k] || []).map(r => [r[0], r])); (add.promo[k] || []).forEach(r => m.set(r[0], r)); P[k] = [...m.values()].sort((a, b) => (b[k === 'fs' ? 1 : 3]) - (a[k === 'fs' ? 1 : 3])); }
     const km = new Map((P.kpi || []).map(r => [r[0] + '|' + r[2], r])); (add.promo.kpi || []).forEach(r => km.set(r[0] + '|' + r[2], r)); P.kpi = [...km.values()].sort((a, b) => a[2] - b[2]);
   }
+  if (add.catalog && add.catalog.length) data.catalog = add.catalog;
   if (add.ledger && add.ledger.length) { // replace the window the collector covered, keep older history
     const from = Math.min(...add.ledger.map(r => r[0]));
     data.ledger = (data.ledger || []).filter(r => r[0] < from).concat(add.ledger).sort((a, b) => a[0] - b[0]);

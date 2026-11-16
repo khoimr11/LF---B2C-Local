@@ -114,6 +114,13 @@ window.LG = (() => {
         const p = ((await j('/api/v3/product/get_product_info?product_id=' + iid + '&is_draft=false')).data || {}).product_info;
         if (p) (p.model_list || []).forEach(m => S.prods.push([iid, m.id, p.name, m.name, m.sku, Number(m.price_info.normal_price), Number(m.price_info.promotion_price), (m.stock_detail || {}).total_available_stock ?? null]));
       }
+      S.phase = 'catalog';  // toàn bộ listing + phân loại (để chuẩn hóa SKU theo item_id/model_id)
+      try { const tree = ((await j('/api/v3/category/get_category_tree')).data || {}).list || [], cn = {}; const w = l => l.forEach(x => { cn[x.id] = x.display_name || x.name; if (x.children) w(x.children); }); w(tree);
+        S.catalog = [];
+        for (let pg = 1; pg < 40; pg++) { const r = await j('/api/v3/opt/mpsku/list/v2/get_product_list?page_number=' + pg + '&page_size=48&list_type=all&need_ads=false'); const l = (r.data && r.data.products) || [];
+          // [item_id, tên listing, SKU cha, trạng thái, đã bán, ngành hàng, [[model_id, tên phân loại, SKU, giá gốc, giá KM, tồn, đã bán]]]
+          l.forEach(p => S.catalog.push([p.id, p.name, p.parent_sku || '', p.status, (p.statistics || {}).sold_count || 0, (p.category_path || []).map(i => cn[i] || i).join(' > '), (p.model_list || []).map(m => [m.id, m.name || '', m.sku || '', +m.price_detail.origin_price, +m.price_detail.promotion_price, m.stock_detail.total_available_stock, (m.statistics || {}).sold_count || 0])]));
+          if (l.length < 48) break; } } catch (e) { S.catalogErr = String(e); }
       S.phase = 'ads';
       const day0 = Math.floor((now + 25200) / 86400) * 86400 - 25200;
       const g = await j('/api/pas/v1/report/get_time_graph/', { agg_interval: 96, campaign_type: 'product_homepage_v2', start_time: day0 - 89 * 86400, end_time: day0 + 86399, need_roi_target_setting: false, filter_params: { campaign_type: 'new_cpc_homepage' } });
@@ -163,9 +170,11 @@ window.LG = (() => {
     promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
     // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
     pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
-      S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()) });
+      S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()), catalog: S.catalog || [] });
       return JSON.stringify({ parts: Math.ceil(S.pack.length / 800), chars: S.pack.length, orders: rows.length, audit: this.audit() }); },
     // mỗi phần trả về dưới dạng chuỗi JSON (có dấu nháy) để dán nguyên văn vào LFSYNC.add(...) trên trang sync.html
+    // gửi gói dữ liệu sang trang sync.html đã mở tab Shopee này (không đi qua Claude, không tốn token)
+    send() { if (!window.opener) return 'no opener'; if (!S.pack) this.pack(); window.opener.postMessage({ type: 'lfsync-pack', json: S.pack }, 'https://khoimr11.github.io'); return 'sent ' + S.pack.length; },
     part(i) { return JSON.stringify((S.pack || '').slice(i * 800, i * 800 + 800)); },
     // đối soát: doanh thu Shopee = giá − voucher shop − 4 loại phí + ship khách trả − phí ship + trợ giá ship; phụ phí = tổng 4 loại phí
     audit() { return S.rows.filter(r => !/hủy/i.test(r.s) && r.inc != null && (Math.round(r.inc - (r.v - r.sh - r.fx - r.sv - r.pi - r.tx + (r.sb || 0) - (r.sf || 0) + (r.ss || 0))) || (r.surcharge != null && Math.round(r.surcharge - r.fx - r.sv - r.pi - r.tx)))).map(r => r.sn); },
