@@ -551,3 +551,14 @@ td.up { color: var(--c-good); font-weight: 600; }
 [data-shop="nikon"] .wf-r.total .wf-v { color: var(--label); }
 [data-shop="nikon"] .mcard::before { background: #ffe100; }
 [data-shop="nikon"] .side-logo { width: 46px; height: 46px; }
+
+/* ===== SKU chuẩn (shop nhiều sản phẩm) ===== */
+[data-shop="nikon"] .lf-only { display: none; }
+.sku-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 14px; }
+.sku-search { height: 32px; border: 0; border-radius: 9px; background: var(--fill-2); padding: 0 12px; min-width: 0; width: 220px; max-width: 100%; }
+#masterTable tbody tr { cursor: pointer; }
+#masterTable tbody tr:hover td { background: var(--fill-2); }
+#masterTable .pill { margin-left: 6px; font-weight: 500; }
+#skuSection { display: grid; gap: 14px; }
+#skuSection[hidden] { display: none !important; }
+@media (max-width: 900px) { .sku-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

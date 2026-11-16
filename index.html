@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=9">
+<link rel="stylesheet" href="assets/styles.css?v=10">
 </head>
 <body>
 
@@ -160,7 +160,23 @@
       <!-- ===== Products & price ===== -->
       <section id="products" class="sec">
         <div class="sec-h big"><h2>Sản phẩm & giá</h2><span class="sec-sub">Giá nào khách mua nhiều, mỗi sản phẩm thực thu bao nhiêu</span></div>
-        <div class="card">
+        <div id="skuSection" hidden>
+          <div class="tiles sku-tiles" id="skuTiles"></div>
+          <div class="cards-2">
+            <div class="card"><div class="card-h"><div><h3>Ngành hàng</h3><p class="card-sub">NMV theo nhóm sản phẩm · bấm để lọc bảng SKU</p></div></div><div id="groupChart"></div></div>
+            <div class="card"><div class="card-h"><div><h3>Dòng sản phẩm</h3><p class="card-sub">Gộp mọi listing, mọi phân loại của cùng một dòng (Z30, Zf, Prostaff P7…)</p></div></div><div id="lineChart"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div><h3>SKU chuẩn</h3><p class="card-sub" id="masterSub">Mỗi dòng là một mã sản phẩm chuẩn, cộng dồn từ mọi listing và phân loại bán ra mã đó</p></div>
+              <input class="sku-search" id="skuSearch" type="search" placeholder="Tìm SKU, tên…" aria-label="Tìm SKU"></div>
+            <div class="tbl-scroll tbl-tall" id="masterTable"></div>
+          </div>
+          <div class="cards-2">
+            <div class="card"><div class="card-h"><div><h3>Listing</h3><p class="card-sub">Listing riêng và listing gộp nhiều phân loại · trong khoảng đang chọn</p></div></div><div class="tbl-scroll tbl-tall" id="listingTable"></div></div>
+            <div class="card"><div class="card-h"><div><h3>Kiểm tra khớp SKU</h3><p class="card-sub" id="mapSub"></p></div></div><div id="mapCheck"></div></div>
+          </div>
+        </div>
+        <div class="card lf-only">
           <div class="card-h"><div><h3>Giá bán và thực thu mỗi sản phẩm</h3><p class="card-sub">Gom đơn theo giá bán thực tế (đã trừ giảm giá sản phẩm, chưa trừ voucher)</p></div></div>
           <div class="chart" id="priceChart"></div>
           <div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: số sản phẩm bán ở mức giá đó (trục trái)</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>Đường: thực thu trung bình cho 1 sản phẩm (trục phải)</span></div>
@@ -172,7 +188,7 @@
           </dl>
         </div>
         <div class="cards-2">
-          <div class="card">
+          <div class="card lf-only">
             <div class="card-h"><div><h3>Số sản phẩm mỗi đơn</h3><p class="card-sub">Bao nhiêu % khách mua từ 2 sản phẩm trở lên</p></div></div>
             <div class="multi-top" id="multiTop"></div>
             <div class="chart" id="multiChart"></div>
@@ -310,7 +326,7 @@
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js?v=9"></script>
+<script src="assets/app.js?v=10"></script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>
