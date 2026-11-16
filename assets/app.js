@@ -88,7 +88,7 @@ async function fetchEnc(shop = 'lf') {
 let ORDERS = [], ADS = [], PRODUCTS = [], LIST = {}, LEDGER = [], ADSPLIT = {}, REVIEWS = [], META = {}, PROMO = { fs: [], disc: [], vch: [], kpi: [] };
 let WALLET = { paidIn: 0, freeIn: 0, paidUsed: 0, freeUsed: 0, freeBal: 0, paidBal: 0, hasLedger: false };
 const S = { from: 0, to: 0, preset: '30', cmp: 'prev', sku: '', region: '', carrier: '', hour: null, prov: '',
-  dailyMetric: 'nmv', monthlyMetric: 'nmv', q: '', status: '', sort: 't', dir: -1, page: 0 };
+  grain: null, monthlyMetric: 'nmv', q: '', status: '', sort: 't', dir: -1, page: 0 };
 
 // các nhãn viết riêng cho Living Furniture (Ads "LF nạp", đơn vị "kệ") đổi sang chữ chung khi xem shop khác
 function relabel() {
@@ -319,10 +319,11 @@ function bindTips(root, fn, sel = '[data-tip]') {
 const niceMax = v => { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; };
 /* Column chart: stacked bar series + optional line on a right axis, value labels, hover band and rich tooltip. */
 function colChart(el, o) {
-  const { labels, series, line, height = 260, tipFn, onClick, active, yFmt = short, y2Fmt = short, barLabel = short, lineLabel } = o;
+  const { labels, series, height = 260, tipFn, onClick, active, yFmt = short, y2Fmt = short, barLabel = short, lineLabel } = o;
+  const lines = (o.lines || (o.line ? [o.line] : [])).filter(Boolean), line = lines[0], grouped = !!o.grouped;
   const W = Math.max(280, Math.round(el.clientWidth || 600)), H = height, L = 46, R = line ? 46 : 8, T = 22, B = 26, iw = W - L - R, ih = H - T - B, n = labels.length;
-  const totals = labels.map((_, i) => series.reduce((s, se) => s + (se.vals[i] || 0), 0));
-  const mx = niceMax(Math.max(...totals, 0)), ml = line ? niceMax(Math.max(...line.vals, 0)) : 1;
+  const totals = labels.map((_, i) => grouped ? Math.max(0, ...series.map(se => se.vals[i] || 0)) : series.reduce((s, se) => s + (se.vals[i] || 0), 0));
+  const mx = niceMax(Math.max(...totals, 0)), ml = line ? niceMax(Math.max(0, ...lines.flatMap(l => l.vals))) : 1;
   const bw = iw / Math.max(n, 1), gap = Math.min(14, bw * .3), w = Math.max(2, bw - gap);
   const y = v => T + ih - v / mx * ih, yl = v => T + ih - v / ml * ih, cx = i => L + i * bw + bw / 2;
   const every = o.every || Math.max(1, Math.ceil(n / Math.max(3, Math.floor(iw / 56))));
@@ -332,20 +333,25 @@ function colChart(el, o) {
   labels.forEach((lb, i) => { s += `<rect class="band" data-tip="${i}" x="${(L + i * bw).toFixed(1)}" y="${T - 6}" width="${bw.toFixed(1)}" height="${ih + 6}"/>`; });
   labels.forEach((lb, i) => {
     let acc = 0; const op = active == null || active === i ? 1 : .32;
+    if (grouped) { const gw = w / series.length; series.forEach((se, k) => { const v = se.vals[i] || 0; if (v <= 0) return;
+      s += `<rect class="bar" x="${(cx(i) - w / 2 + k * gw).toFixed(1)}" y="${y(v).toFixed(1)}" width="${Math.max(1, gw - 1).toFixed(1)}" height="${Math.max(.5, y(0) - y(v)).toFixed(1)}" rx="${Math.min(4, gw / 2).toFixed(1)}" fill="${se.color}" opacity="${op}"/>`; });
+      if (i % every === 0) s += `<text class="ax" x="${cx(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${esc(lb)}</text>`; return; }
     series.forEach((se, k) => { const v = se.vals[i] || 0; if (v <= 0) return; const y0 = y(acc), y1 = y(acc + v); acc += v;
       const top = k === series.length - 1 || !series.slice(k + 1).some(x => x.vals[i] > 0);
       s += `<rect class="bar" x="${(cx(i) - w / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(.5, y0 - y1).toFixed(1)}" rx="${top ? Math.min(5, w / 2).toFixed(1) : 0}" fill="${se.color}" opacity="${op}"/>`; });
     if (showBarLabels && totals[i] > 0 && String(barLabel(totals[i])).length * 5.9 <= bw + 4) s += `<text class="vl" x="${cx(i).toFixed(1)}" y="${(y(totals[i]) - 5).toFixed(1)}" text-anchor="middle">${barLabel(totals[i])}</text>`;
     if (i % every === 0) s += `<text class="ax" x="${cx(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${esc(lb)}</text>`;
   });
-  if (line && line.vals.some(v => v)) {
-    const pts = line.vals.map((v, i) => [cx(i), yl(v)]);
-    s += `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('')}" stroke="${line.color}" stroke-width="2.2" fill="none" class="ln"/>`;
-    const lblLine = lineLabel && n <= 16 && bw >= 30;
-    line.vals.forEach((v, i) => { if (!v) return; s += `<circle cx="${pts[i][0].toFixed(1)}" cy="${pts[i][1].toFixed(1)}" r="3.6" fill="var(--card)" stroke="${line.color}" stroke-width="2"/>`;
+  lines.forEach((ln, li) => {
+    if (!ln.vals.some(v => v)) return;
+    const pts = ln.vals.map((v, i) => [cx(i), yl(v)]), dots = n <= 62;
+    let dd = '', pen = false; pts.forEach((p, i) => { if (ln.vals[i] == null) { pen = false; return; } dd += (pen ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); pen = true; });
+    s += `<path d="${dd}" stroke="${ln.color}" stroke-width="${ln.width || 2.2}" fill="none" class="ln"${ln.dash ? ` stroke-dasharray="${ln.dash}"` : ''}/>`;
+    const lblLine = li === 0 && lineLabel && n <= 16 && bw >= 30;
+    ln.vals.forEach((v, i) => { if (!v || !dots || ln.dash) return; s += `<circle cx="${pts[i][0].toFixed(1)}" cy="${pts[i][1].toFixed(1)}" r="${lines.length > 1 ? 2.8 : 3.6}" fill="var(--card)" stroke="${ln.color}" stroke-width="2"/>`;
       const bt = y(totals[i]) - 5, near = showBarLabels && totals[i] > 0 && Math.abs(pts[i][1] - 9 - bt) < 13, ly = near ? (pts[i][1] < bt ? pts[i][1] - 9 : pts[i][1] + 17) : pts[i][1] - 9;
-      if (lblLine) s += `<text class="vl ln-l" x="${pts[i][0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" style="fill:${line.color}">${lineLabel(v)}</text>`; });
-  }
+      if (lblLine) s += `<text class="vl ln-l" x="${pts[i][0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" style="fill:${ln.color}">${lineLabel(v)}</text>`; });
+  });
   el.innerHTML = s + '</svg>';
   if (tipFn) bindTips(el, i => tipFn(+i));
   if (onClick) el.querySelectorAll('.band').forEach(h => { h.style.cursor = 'pointer'; h.addEventListener('click', () => { untip(); onClick(+h.dataset.tip); }); });
@@ -522,6 +528,28 @@ function kpiActual(a, b) {
   const tax = KPI_TAX * months.size;
   return { u: R.units, gmv, nmv: R.nmv, fx: R.fx, tx: R.tx, sv: R.sv, aff: null, pi: R.pi, fee: R.fee, ads, sh: R.sh, feeAds: R.fee + R.sh + ads, tax, netRev, com, profit: netRev - com - tax, orders: R.orders };
 }
+function kpiCharts(i, all, t) {
+  const ms = KPI_M.map(m => isoToKey(m + '-01')), act = ms.map((a, j) => t >= a ? kpiActual(a, Math.min(monthEnd(monthKey(a)), t)) : null);
+  colChart($('#kpiAllChart'), { labels: KPI_M.map(m => 'T' + +m.slice(5)), series: [{ vals: KPI_PLAN.units, color: 'var(--fill-3, #c9c9c9)' }, { vals: act.map(x => x ? x.u : 0), color: 'var(--c-brand)' }], grouped: true,
+    lines: [{ vals: KPI_M.map((_, j) => kpiPlan(j).netRev), color: 'var(--label-2)', dash: '5 4', width: 1.8 }, { vals: act.map(x => x ? x.netRev : null), color: 'var(--c-blue)' }],
+    yFmt: full, y2Fmt: short, barLabels: false, height: 240, every: 1, active: all ? null : i, aria: 'Kệ và Net Revenue kế hoạch so với thực tế theo tháng',
+    tipFn: j => { const p = kpiPlan(j), a = act[j]; return `<b>Tháng ${KPI_M[j].slice(5)}/${KPI_M[j].slice(0, 4)}</b>` + tipRows([['Kệ KH / thực tế', `${full(p.u)} / ${a ? full(a.u) : '–'}`, 'var(--c-brand)'], ['Net GMV KH / thực tế', `${short(p.nmv)} / ${a ? short(a.nmv) : '–'}`], ['Net Revenue KH / thực tế', `${short(p.netRev)} / ${a ? short(a.netRev) : '–'}`, 'var(--c-blue)'], ['Profit KH / thực tế', `${short(p.profit)} / ${a ? short(a.profit) : '–'}`]]) + '<div class="tr muted"><span>Bấm để xem tháng này</span></div>'; },
+    onClick: j => { KPI_SEL = j; renderKpi(); } });
+  let labels, bars, cumA, cumP, tips;
+  if (all) {
+    labels = KPI_M.map(m => 'T' + +m.slice(5)); bars = act.map(x => x ? x.u : 0); let s1 = 0, s2 = 0;
+    cumA = act.map(x => x ? (s1 += x.u) : null); cumP = KPI_PLAN.units.map(u => (s2 += u)); tips = labels.map((l, j) => 'Tháng ' + KPI_M[j].slice(5) + '/' + KPI_M[j].slice(0, 4));
+    $('#kpiOneTitle').textContent = 'Lũy kế cả kỳ · kệ';
+  } else {
+    const a = isoToKey(KPI_M[i] + '-01'), e = monthEnd(monthKey(a)), nd = e - a + 1, per = KPI_PLAN.units[i] / nd; labels = []; bars = []; cumA = []; cumP = []; tips = [];
+    const byDay = {}; ORDERS.forEach(o => { if (!o.cx && o.day >= a && o.day <= e) byDay[o.day] = (byDay[o.day] || 0) + o.q; });
+    let c = 0; for (let d = a; d <= e; d++) { labels.push(String(keyToDate(d).getUTCDate())); bars.push(byDay[d] || 0); c += byDay[d] || 0; cumA.push(d <= t ? c : null); cumP.push(Math.round(per * (d - a + 1) * 10) / 10); tips.push(dmy(d)); }
+    $('#kpiOneTitle').textContent = `Tháng ${+KPI_M[i].slice(5)}/${KPI_M[i].slice(0, 4)} · kệ theo ngày`;
+  }
+  colChart($('#kpiOneChart'), { labels, series: [{ vals: bars, color: 'var(--c-brand)' }], lines: [{ vals: cumP, color: 'var(--label-2)', dash: '5 4', width: 1.8 }, { vals: cumA, color: 'var(--c-blue)' }],
+    yFmt: full, y2Fmt: full, barLabel: full, height: 240, aria: 'Kệ bán và lũy kế so với kế hoạch',
+    tipFn: j => `<b>${tips[j]}</b>` + tipRows([['Kệ bán', full(bars[j]), 'var(--c-brand)'], ['Lũy kế thực tế', cumA[j] != null ? full(cumA[j]) : '–', 'var(--c-blue)'], ['Lũy kế kế hoạch', full(Math.round(cumP[j]))], cumA[j] != null ? ['Chênh lệch', (cumA[j] - cumP[j] >= 0 ? '+' : '') + full(Math.round(cumA[j] - cumP[j])) + ' kệ'] : null]) });
+}
 function renderKpi() {
   const el = $('#kpiCard'); if (!el) return;
   if (SHOP !== 'lf') { el.innerHTML = ''; return; }
@@ -559,8 +587,11 @@ function renderKpi() {
       <div><b>${unitNet != null ? short(unitNet) + ' ₫' : '—'}</b><span>Thực về TB/kệ · KH ${short(PLAN.netUnit)} ₫</span></div>
       <div><b>${ratio != null ? pct(ratio) : '—'}</b><span>Biên thực thu / Net GMV · KH 60,02%</span></div>
       <div><b class="${A_ && (live ? projProfit : A_.profit) >= P_.profit ? 'good' : 'bad'}">${A_ ? short(live ? projProfit : A_.profit) + ' ₫' : '—'}</b><span>${live ? 'Profit dự phóng' : 'Profit thực tế'} · KH ${short(P_.profit)} ₫</span></div></div>
+    <div class="cards-2 kpi-charts"><div><h4>Cả kỳ kế hoạch · theo tháng</h4><div class="chart" id="kpiAllChart"></div><div class="legend"><span><i class="lg-bar" style="--c:var(--fill-3, #c9c9c9)"></i>Kệ kế hoạch</span><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Kệ thực tế</span><span><i class="lg-line lg-dash" style="--c:var(--label-2)"></i>Net Revenue KH</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>Net Revenue thực tế (₫, trục phải)</span></div></div>
+      <div><h4 id="kpiOneTitle"></h4><div class="chart" id="kpiOneChart"></div><div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Kệ bán</span><span><i class="lg-line lg-dash" style="--c:var(--label-2)"></i>Lũy kế kế hoạch</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>Lũy kế thực tế (trục phải)</span></div></div></div>
     <div class="tbl-scroll"><table class="kpitable"><thead><tr><th>Hạng mục</th><th class="r">Kế hoạch</th><th class="r">Thực tế</th>${live ? '<th class="r">Dự phóng</th>' : ''}<th class="r">% đạt</th></tr></thead><tbody>${body}</tbody></table></div>
     <p class="card-sub" style="margin-top:10px">Thực tế: Phí dịch vụ Shopee gộp gói Voucher Xtra; Affiliate chưa có trong dữ liệu đơn. Ads tính phần LF nạp (không gồm Ads Shopee tặng). Net Revenue thực tế đã trừ thêm voucher shop. Thuế khoán 20 tr/tháng.</p>`;
+  kpiCharts(i, all, t);
   $('#kpiSel').addEventListener('change', e => { KPI_SEL = e.target.value === 'all' ? 'all' : +e.target.value; renderKpi(); });
 }
 function renderChannels() {
@@ -577,17 +608,23 @@ const dayTip = (title, os, ads) => {
     ads && (ads.cost || ads.imp) ? ['Chi phí Ads', money(ads.cost) + (ads.free ? ` (tặng ${short(ads.free)})` : ''), 'var(--c-ads)'] : null]);
 };
 function renderDaily() {
-  const n = C.days, weekly = n > 120, step = weekly ? 7 : 1, B = Math.ceil(n / step), m = S.dailyMetric;
-  const f = { nmv: o => (o.cx ? 0 : o.v), gmv: o => o.v, units: o => (o.cx ? 0 : o.q), orders: o => (o.cx ? 0 : 1) }[m];
-  const bars = Array(B).fill(0), cost = Array(B).fill(0), labels = [], buckets = Array.from({ length: B }, () => []), adsB = Array.from({ length: B }, () => ({ cost: 0, free: 0, imp: 0 }));
-  for (let i = 0; i < B; i++) labels.push(dm(C.a + i * step));
-  C.os.forEach(o => { const i = Math.floor((o.day - C.a) / step); bars[i] += f(o); buckets[i].push(o); });
-  C.ads.forEach(r => { const i = Math.floor((r.day - C.a) / step); cost[i] += r.cost; adsB[i].cost += r.cost; adsB[i].free += r.free; adsB[i].imp += r.imp; });
-  const isMoney = m === 'nmv' || m === 'gmv', name = { nmv: 'NMV', gmv: 'GMV', units: 'Số sản phẩm', orders: 'Số đơn hợp lệ' }[m];
-  colChart($('#dailyChart'), { labels, series: [{ vals: bars, color: 'var(--c-brand)' }], line: { vals: cost, color: 'var(--c-ads)' }, yFmt: isMoney ? short : full, barLabel: isMoney ? short : full, height: 280, aria: name + ' theo ngày',
-    tipFn: i => dayTip((weekly ? 'Tuần từ ' : '') + dmy(C.a + i * step), buckets[i], adsB[i]) });
-  $('#dailyLegend').innerHTML = `<span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: ${name}${isMoney ? ' (₫)' : ''}</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: chi phí Ads chạy (₫, trục phải)</span>`;
-  $('#dailyNote').textContent = weekly ? 'Khoảng dài nên gộp theo tuần' : 'Số trên đầu cột là giá trị của ngày';
+  const n = C.days, g = S.grain || (n > 400 ? 'month' : n > 120 ? 'week' : 'day');
+  $$('#dailyMetric button').forEach(b => b.classList.toggle('on', b.dataset.m === g));
+  const keyOf = d => g === 'day' ? d : g === 'week' ? d - ((keyToDate(d).getUTCDay() + 6) % 7) : monthStart(monthKey(d));
+  const starts = []; for (let d = C.a; d <= C.b; d++) { const k = keyOf(d); if (!starts.length || starts[starts.length - 1] !== k) starts.push(k); }
+  const idx = new Map(starts.map((k, i) => [k, i])), B = starts.length;
+  const units = Array(B).fill(0), nmv = Array(B).fill(0), gmv = Array(B).fill(0), cost = Array(B).fill(0), buckets = Array.from({ length: B }, () => []), adsB = Array.from({ length: B }, () => ({ cost: 0, free: 0, imp: 0 }));
+  C.os.forEach(o => { const i = idx.get(keyOf(o.day)); if (i == null) return; buckets[i].push(o); gmv[i] += o.v; if (!o.cx) { units[i] += o.q; nmv[i] += o.v; } });
+  C.ads.forEach(r => { const i = idx.get(keyOf(r.day)); if (i == null) return; cost[i] += r.cost; adsB[i].cost += r.cost; adsB[i].free += r.free; adsB[i].imp += r.imp; });
+  const lab = k => g === 'month' ? monthLabel(monthKey(k)) : dm(k);
+  const title = (k, i) => g === 'day' ? dmy(k) : g === 'week' ? `Tuần ${dm(Math.max(k, C.a))} – ${dm(Math.min(k + 6, C.b))}` : monthLabel(monthKey(k));
+  colChart($('#dailyChart'), { labels: starts.map(lab), series: [{ vals: units, color: 'var(--c-brand)' }],
+    lines: [{ vals: nmv, color: 'var(--c-blue)' }, { vals: gmv, color: 'var(--label-2)', dash: '5 4', width: 1.8 }, { vals: cost, color: 'var(--c-ads)' }],
+    yFmt: full, barLabel: v => full(v), y2Fmt: short, height: 290, aria: 'Sản phẩm bán, NMV, GMV và Ads theo ' + { day: 'ngày', week: 'tuần', month: 'tháng' }[g],
+    tipFn: i => dayTip(title(starts[i], i), buckets[i], adsB[i]) });
+  $('#dailyLegend').innerHTML = `<span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: sản phẩm bán (trục trái)</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>NMV</span><span><i class="lg-line lg-dash" style="--c:var(--label-2)"></i>GMV (gồm đơn hủy)</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Chi phí Ads (đường: ₫, trục phải)</span>`;
+  $('#dailyNote').textContent = { day: 'Theo ngày', week: 'Theo tuần (thứ 2 – CN)', month: 'Theo tháng' }[g] + ' · số trên đầu cột là sản phẩm bán';
+  $('#dailyTitle').textContent = 'Doanh số theo ' + { day: 'ngày', week: 'tuần', month: 'tháng' }[g];
 }
 function renderMonthly() {
   const all = ORDERS.filter(o => (!S.sku || o.sku === S.sku || (o.skus && o.skus.includes(S.sku))) && (!S.region || o.region === S.region) && (!S.carrier || o.car === S.carrier) && (S.hour === null || o.hour === S.hour));
@@ -868,7 +905,7 @@ function bind() {
   $('#clearHour').addEventListener('click', () => { S.hour = null; render(); });
   $('#wardBack').addEventListener('click', () => { S.prov = ''; renderProv(); renderWard(); });
   const seg = (id, key, fn) => $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S[key] = b.dataset.m ?? b.dataset.s; $$(id + ' button').forEach(x => x.classList.toggle('on', x === b)); if (key === 'status') S.page = 0; fn(); });
-  seg('#dailyMetric', 'dailyMetric', renderDaily); seg('#monthlyMetric', 'monthlyMetric', renderMonthly); seg('#statusSeg', 'status', renderOrders);
+  seg('#dailyMetric', 'grain', renderDaily); seg('#monthlyMetric', 'monthlyMetric', renderMonthly); seg('#statusSeg', 'status', renderOrders);
   let qt; $('#orderSearch').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { S.q = e.target.value; S.page = 0; renderOrders(); }, 150); });
   $('#exportBtn').addEventListener('click', exportCSV);
   $('#themeBtn').addEventListener('click', () => { const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; store.set('lf-theme', r.dataset.theme); });

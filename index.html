@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=11">
+<link rel="stylesheet" href="assets/styles.css?v=12">
 </head>
 <body>
 
@@ -135,8 +135,8 @@
         <div class="sec-h big"><h2>Doanh số</h2><span class="sec-sub">Rê chuột (hoặc chạm) vào từng cột để xem đủ chỉ số của ngày, tháng đó</span></div>
         <div class="card">
           <div class="card-h">
-            <div><h3>Theo ngày</h3><p class="card-sub" id="dailyNote"></p></div>
-            <div class="seg" id="dailyMetric"><button data-m="nmv" class="on">NMV</button><button data-m="gmv">GMV</button><button data-m="units">Sản phẩm</button><button data-m="orders">Đơn</button></div>
+            <div><h3 id="dailyTitle">Doanh số theo ngày</h3><p class="card-sub" id="dailyNote"></p></div>
+            <div class="seg" id="dailyMetric"><button data-m="day" class="on">Ngày</button><button data-m="week">Tuần</button><button data-m="month">Tháng</button></div>
           </div>
           <div class="chart" id="dailyChart"></div>
           <div class="legend" id="dailyLegend"></div>
@@ -327,7 +327,7 @@
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js?v=11"></script>
+<script src="assets/app.js?v=12"></script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>

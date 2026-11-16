@@ -577,3 +577,9 @@ td.up { color: var(--c-good); font-weight: 600; }
 .kpitable .good, .kpi-mini .good { color: var(--c-brand); }
 .kpitable .bad, .kpi-mini .bad { color: var(--c-red, #d03b3b); }
 @media (max-width: 700px) { .kpi-mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.lg-line.lg-dash::before { background: none; height: 0; border-top: 2px dashed var(--c); }
+.lg-line.lg-dash::after { display: none; }
+.kpi-charts { margin: 0 0 14px; }
+.kpi-charts > div { min-width: 0; }
+.kpi-charts h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--label-2); }
