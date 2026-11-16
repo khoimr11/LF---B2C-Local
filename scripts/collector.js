@@ -25,18 +25,29 @@ window.LG = (() => {
     for (let i = 0; i < L.length - 1; i++) if (/^-?₫[\d.]+$/.test(L[i + 1]) && !/^-?₫/.test(L[i]) && !(L[i] in o)) o[L[i]] = Number(L[i + 1].replace(/[₫.]/g, ''));
     return o; };
   const g = (o, ...ks) => { for (const k of ks) if (k in o) return o[k]; return null; };
-  const fee = id => new Promise(res => {
+  // Phí từng đơn: gọi thẳng API "chi tiết doanh thu" (nhanh ~0,3 s/đơn); nếu API lỗi thì quay về cách đọc trang đơn trong iframe
+  const feeApi = async id => {
+    const r = await j('/api/v4/accounting/pc/seller_income/income_detail/get_order_income_components', { order_id: +id, components: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] });
+    const bd = r && r.data && r.data.seller_income_breakdown && r.data.seller_income_breakdown.breakdown; if (!bd) return null;
+    const o = {}; const fl = a => a.forEach(x => { if (x.display_name && !(x.display_name in o)) o[x.display_name] = Math.round((x.amount || 0) / 1e5); if (x.sub_breakdown) fl(x.sub_breakdown); }); fl(bd);
+    return o;
+  };
+  const feeFrame = id => new Promise(res => {
     const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;left:-9999px;top:0;width:1300px;height:2400px';
     f.src = '/portal/sale/order/' + id; document.body.appendChild(f); let n = 0, clicks = 0;
     const iv = setInterval(() => { n++; let t = '', d = null; try { d = f.contentDocument; f.contentWindow.scrollTo(0, (n % 4) * 800); t = d.body.innerText; } catch (e) {}
       if (d && t.includes('Thông tin thanh toán') && !/Doanh thu đơn hàng/i.test(t) && clicks < 4) { const el = [...d.querySelectorAll('div,span,a,button')].find(e => /^\s*Xem chi tiết doanh thu\s*$/.test(e.textContent)); if (el) { el.click(); clicks++; } }
       if (/Doanh thu đơn hàng[^\n]*\n\s*₫/i.test(t) || n > 90) { clearInterval(iv); f.remove();
-        const a = t.indexOf('Tổng tiền sản phẩm'), b = t.indexOf('Điều chỉnh đặt hàng'); const o = a >= 0 ? parsePairs(t.slice(a, b > a ? b : a + 2500)) : {};
-        if (!('Phụ phí' in o)) return res({});
-        const neg = v => v == null ? 0 : -v;
-        res({ fx: neg(g(o, 'Phí cố định')), sv: neg(g(o, 'Phí Dịch Vụ')), pi: neg(g(o, 'Phí dịch vụ PiShip')), tx: neg(g(o, 'Phí xử lý giao dịch')),
-          sh: neg(g(o, 'Trợ giá')), surcharge: neg(g(o, 'Phụ phí')), inc: g(o, 'Doanh Thu Đơn Hàng', 'Doanh thu đơn hàng ước tính'), fin: 'Doanh Thu Đơn Hàng' in o ? 1 : 0,
-          sb: g(o, 'Phí vận chuyển Người mua trả') || 0, sf: neg(g(o, 'Phí vận chuyển thực tế', 'Phí vận chuyển ước tính')), ss: g(o, 'Phí vận chuyển được trợ giá từ Shopee', 'Phí vận chuyển được trợ giá từ Shopee ước tính') || 0 }); } }, 350); });
+        const a = t.indexOf('Tổng tiền sản phẩm'), b = t.indexOf('Điều chỉnh đặt hàng'); res(a >= 0 ? parsePairs(t.slice(a, b > a ? b : a + 2500)) : {}); } }, 350); });
+  const fee = async id => {
+    let o = null; try { o = await feeApi(id); } catch (e) {}
+    if (!o || !('Phụ phí' in o)) o = await feeFrame(id);
+    if (!('Phụ phí' in o)) return {};
+    const neg = v => v == null ? 0 : -v;
+    return { fx: neg(g(o, 'Phí cố định')), sv: neg(g(o, 'Phí Dịch Vụ')), pi: neg(g(o, 'Phí dịch vụ PiShip')), tx: neg(g(o, 'Phí xử lý giao dịch')),
+      sh: neg(g(o, 'Trợ giá')), surcharge: neg(g(o, 'Phụ phí')), inc: g(o, 'Doanh Thu Đơn Hàng', 'Doanh thu đơn hàng', 'Doanh thu đơn hàng ước tính'), fin: ('Doanh Thu Đơn Hàng' in o || 'Doanh thu đơn hàng' in o) ? 1 : 0,
+      sb: g(o, 'Phí vận chuyển Người mua trả') || 0, sf: neg(g(o, 'Phí vận chuyển thực tế', 'Phí vận chuyển ước tính')), ss: g(o, 'Phí vận chuyển được trợ giá từ Shopee', 'Phí vận chuyển được trợ giá từ Shopee ước tính') || 0 };
+  };
   const P = (u, b) => j(u, b);
   // kênh vận chuyển + giao hỏa tốc + mốc thời gian giao (quét key trong đơn vì Shopee đặt tên không cố định)
   const shipInfo = d => {
@@ -88,7 +99,7 @@ window.LG = (() => {
       Object.assign(S, { phase: 'orders', rows: [], ads: [], prods: [], ledger: [], reviews: [], promo: { fs: [], disc: [], vch: [], kpi: [] }, feeDone: 0, feeTotal: 0, err: null });
       const now = Math.floor(Date.now() / 1000), cut = now - orderDays * 86400, feeCut = now - feeDays * 86400; S.feeCut = feeCut;
       const ids = []; let page = 1;
-      while (page < 60) {
+      while (page < 400) {
         const r = await j('/api/v3/order/search_order_list_index', { order_list_tab: 100, entity_type: 1, pagination: { from_page_number: 1, page_number: page, page_size: 40 }, filter: { fulfillment_type: 0, is_drop_off: 0, fulfillment_source: 0, action_filter: 0 }, sort: { sort_type: 3, ascending: false } });
         const l = (r.data && r.data.index_list) || []; if (!l.length) break; ids.push(...l.map(x => x.order_id));
         const last = (await j('/api/v3/order/get_one_order?order_id=' + l[l.length - 1].order_id)).data;
