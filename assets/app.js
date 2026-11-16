@@ -133,7 +133,7 @@ function normalizeSkus(d) {
 }
 let SKU_GROUP = '', SKU_Q = '';
 function renderSkus() {
-  const on = CATALOG.length > 0; $('#skuSection').hidden = !on; if (!on) return;
+  const on = CATALOG.length > 0 && SHOP !== 'lf'; $('#skuSection').hidden = !on; if (!on) return;
   const lines = C.ok.flatMap(o => (o.lines || []).map(l => ({ ...l, o })));
   const sell = lines.filter(l => !l.gift), nmv = sum(sell, l => l.v) || 1;
   const by = new Map(); sell.forEach(l => { const k = l.master; if (!by.has(k)) by.set(k, { M: l.M, q: 0, v: 0, n: new Set(), lst: {}, prices: [] }); const x = by.get(k); x.q += l.units; x.v += l.v; x.n.add(l.o.sn); x.lst[l.iid] = (x.lst[l.iid] || 0) + l.units; x.prices.push(l.p / (l.units / l.q)); });
