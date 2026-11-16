@@ -593,3 +593,5 @@ td.up { color: var(--c-good); font-weight: 600; }
   .side-foot { padding-bottom: 8px; }
   .side-actions .btn-ghost { height: 38px; font-size: 14px; }
 }
+.target-meta .good { color: var(--c-brand); } .target-meta .bad { color: var(--c-red, #d03b3b); }
+.target-meta b { white-space: normal; }

@@ -491,18 +491,35 @@ function planUnits(a, b) { // kế hoạch kệ trong khoảng ngày, chia đề
 }
 function renderTarget() {
   const key = 'lf-target-' + S.from + '-' + S.to, manual = +(store.get(key) || 0), t = todayKey();
-  const pu = planUnits(S.from, S.to), tgtU = Math.round(pu), tgt = manual || Math.round(pu * PLAN.floor);
-  const elapsed = Math.max(1, Math.min(S.to, t) - S.from + 1), days = S.to - S.from + 1, live = S.to > t && S.from <= t;
-  const proj = live ? C.nmv / elapsed * days : C.nmv, projU = live ? C.units / elapsed * days : C.units, rate = tgt ? C.nmv / tgt : 0, rateU = tgtU ? C.units / tgtU : 0;
-  $('#targetCard').innerHTML = `<div class="card-h"><div><h3>Mục tiêu theo kế hoạch</h3><p class="card-sub">${tgtU ? `Kế hoạch ${full(tgtU)} kệ × giá sàn ${short(PLAN.floor)} ₫${manual ? ' · đang dùng NMV nhập tay' : ''}` : 'Ngoài kỳ kế hoạch T11/2026–T5/2027 · nhập mục tiêu NMV'}</p></div>
+  // only days covered by the plan (T11/2026–T5/2027) are compared with the plan
+  const inPlan = k => { const d = keyToDate(k); return !!PLAN.months[d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1)]; };
+  // a range that ends today runs to the end of this month, so the plan is the whole month and the projection is month-end
+  const endK = S.to === t ? monthEnd(monthKey(t)) : S.to;
+  let pa = null, pb = null; for (let k = S.from; k <= endK; k++) if (inPlan(k)) { if (pa === null) pa = k; pb = k; }
+  const hasPlan = pa !== null && !manual, a = hasPlan ? pa : S.from, b = hasPlan ? pb : S.to;
+  const R = (a === S.from && b === S.to) ? C : agg(a, Math.min(b, t));
+  const pu = hasPlan ? planUnits(a, b) : 0, tgtU = Math.round(pu), tgt = manual || Math.round(pu * PLAN.floor);
+  const live = t >= a && t <= b, last = Math.min(b, t), elapsed = Math.max(1, last - a + 1), days = b - a + 1;
+  const fut = t < a, projU = live ? R.units / elapsed * days : R.units, proj = live ? R.nmv / elapsed * days : R.nmv;
+  const rate = tgt ? R.nmv / tgt : 0, rateU = tgtU ? R.units / tgtU : 0, puToDate = hasPlan && live ? planUnits(a, last) : pu;
+  const netU = R.units ? (R.nmv - R.fee - R.sh - R.A.paid) / R.units : 0;
+  const clipped = hasPlan && (a !== S.from || b !== S.to);
+  const sub = hasPlan ? `Kế hoạch ${full(tgtU)} kệ × giá sàn ${short(PLAN.floor)} ₫ = ${short(tgt)} ₫${clipped ? ` · chỉ tính ${dmy(a)} – ${dmy(b)} (trong kỳ kế hoạch)` : ''}` : manual ? 'Đang dùng mục tiêu NMV nhập tay' : 'Ngoài kỳ kế hoạch T11/2026–T5/2027 · nhập mục tiêu NMV';
+  const tiles = [
+    `<div><b>${full(R.units)}${tgtU ? ' / ' + full(tgtU) : ''} kệ</b><span>Đã bán / kế hoạch${live && hasPlan ? ` · tiến độ đến hôm nay ${full(Math.round(puToDate))} kệ` : ''}</span></div>`,
+    `<div><b>${short(R.nmv)} ₫</b><span>Net GMV${tgt ? ' · ' + pct(rate, 0) + ' của ' + short(tgt) + ' ₫' : ''}</span></div>`,
+    live && !fut ? `<div><b>${full(Math.round(projU))} kệ · ${short(proj)} ₫</b><span>Dự phóng cuối kỳ${tgtU ? ' · ' + pct(projU / tgtU, 0) + ' kế hoạch' : ''}</span></div>`
+      : `<div><b class="${tgtU && R.units < tgtU ? 'bad' : 'good'}">${tgtU ? (R.units >= tgtU ? '+' : '−') + full(Math.abs(tgtU - R.units)) + ' kệ' : '—'}</b><span>${tgtU ? (R.units >= tgtU ? 'Vượt kế hoạch' : 'Thiếu so với kế hoạch') : 'Chênh lệch kế hoạch'}</span></div>`,
+    `<div><b class="${R.units && netU < PLAN.netUnit ? 'bad' : ''}">${R.units ? short(netU) + ' ₫' : '—'}</b><span>Thực về/kệ (sau phí sàn, voucher, Ads) · KH ${short(PLAN.netUnit)} ₫</span></div>`,
+    tgtU && live ? `<div><b>${full(Math.max(0, Math.ceil((tgtU - R.units) / Math.max(1, b - t + 1))))} kệ/ngày</b><span>Cần bán mỗi ngày còn lại đến ${dmy(b)} (${b - t + 1} ngày, gồm hôm nay)</span></div>` : ''
+  ];
+  $('#targetCard').innerHTML = `<div class="card-h"><div><h3>Mục tiêu theo kế hoạch</h3><p class="card-sub">${sub}</p></div>
     <label class="target-input"><input id="targetInput" inputmode="numeric" placeholder="${tgtU ? 'Theo kế hoạch: ' + full(Math.round(pu * PLAN.floor)) : 'Nhập mục tiêu, VD 30.000.000'}" value="${manual ? full(manual) : ''}" aria-label="Mục tiêu NMV"></label></div>
-    <div class="ring-row"><div class="ring" style="--p:${Math.min(100, (tgtU ? rateU : rate) * 100).toFixed(1)}"><b>${tgtU ? pct(rateU, 0) : tgt ? pct(rate, 0) : '—'}</b><span>${tgtU ? 'kệ đã đạt' : 'đã đạt'}</span></div>
-    <div class="target-meta"><div><b>${full(C.units)}${tgtU ? ' / ' + full(tgtU) : ''} kệ</b><span>Đã bán / kế hoạch</span></div><div><b>${short(C.nmv)} ₫</b><span>NMV${tgt ? ' · ' + pct(rate, 0) + ' của ' + short(tgt) + ' ₫' : ''}</span></div>
-    <div><b>${live ? full(Math.round(projU)) + ' kệ' : short(proj) + ' ₫'}</b><span>${live ? 'Dự phóng cuối kỳ · ' + short(proj) + ' ₫' : 'NMV cả kỳ'}</span></div>
-    <div><b style="color:${C.unitNet && C.unitNet < PLAN.netUnit ? 'var(--c-red, #d03b3b)' : 'inherit'}">${C.units ? short(C.unitNet) + ' ₫' : '—'}</b><span>Thực thu/kệ · mục tiêu ${short(PLAN.netUnit)} ₫</span></div>
-    ${tgtU && live ? `<div><b>${full(Math.max(0, Math.ceil((tgtU - C.units) / Math.max(1, S.to - t + 1))))} kệ</b><span>Cần mỗi ngày còn lại</span></div>` : ''}</div></div>`;
+    <div class="ring-row"><div class="ring" style="--p:${Math.min(100, (tgtU ? rateU : rate) * 100).toFixed(1)}"><b>${tgtU ? pct(rateU, 0) : tgt ? pct(rate, 0) : '—'}</b><span>${tgtU ? 'kệ đã đạt' : 'NMV đã đạt'}</span></div>
+    <div class="target-meta">${tiles.join('')}</div></div>`;
   $('#targetInput').addEventListener('change', e => { const v = +String(e.target.value).replace(/\D/g, ''); if (v) store.set(key, v); else store.del(key); renderTarget(); });
 }
+
 /* ===== KPI P&L kệ 3 tầng (bảng kế hoạch T11/2026–T5/2027) ===== */
 const KPI_M = ['2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05'];
 const KPI_PLAN = {
