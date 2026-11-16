@@ -583,3 +583,13 @@ td.up { color: var(--c-good); font-weight: 600; }
 .kpi-charts { margin: 0 0 14px; }
 .kpi-charts > div { min-width: 0; }
 .kpi-charts h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--label-2); }
+/* mobile sheet fixes: keep footer (theme / logout) above the tab bar, stop controls overflowing */
+.presets, .dates { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.presets button, .dates label, .sel, .sel select { min-width: 0; max-width: 100%; }
+.dates input { -webkit-appearance: none; appearance: none; text-align: left; overflow: hidden; }
+@media (max-width: 900px) {
+  .sidebar { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); overflow-x: hidden; }
+  .sidebar > * { min-width: 0; }
+  .side-foot { padding-bottom: 8px; }
+  .side-actions .btn-ghost { height: 38px; font-size: 14px; }
+}
