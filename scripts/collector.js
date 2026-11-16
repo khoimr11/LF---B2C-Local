@@ -10,7 +10,7 @@
 //   LG.promo()                      -> {fs: flash sales, disc: discounts/combos/add-ons, vch: vouchers, kpi: Shopee 7-day metrics per tool}
 // To save tokens, chunk/ads/ledger/reviews only return the recent window (fee window + 9 days, plus unfinished orders);
 // data-tool merge keeps everything older.
-// Order row: [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,sh,pv,inc,sku,ret,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal,shipChannel,express,pickupTime,deliveredTime]
+// Order row: [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,sh,pv,inc,sku,ret,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal,shipChannel,express,pickupTime,deliveredTime,items]
 //   fee fields (fx..inc) are null when not refreshed in this run -> keep previous values when merging
 // Ads row:   [dayStart,impr,clicks,cost,broadOrders,broadGMV,directOrders,directGMV,atc,broadUnits]
 // Product:   [itemId,modelId,itemName,modelName,sku,normalPrice,promoPrice,stock]
@@ -105,7 +105,9 @@ window.LG = (() => {
           m: it.map(i => (i.item_model || {}).name).join('/'), p: Number((it[0] || {}).order_price || 0),
           prov: (a[a.length - 1] || '').replace(/^\*+/, '').replace('Thành phố ', '').replace('Tỉnh ', ''), ward: (a[a.length - 2] || '').replace(/^\*+/, ''), car: (d.fulfillment_carrier_name || '').split(' ')[0] || null,
           sku: it.map(i => (i.item_model || {}).sku || (i.product || {}).sku).join('/'), ret: d.return_id ? 1 : 0, iid: (it[0] || {}).item_id || null,
-          deal: it.some(i => i.bundle_deal_id) ? 'combo' : it.some(i => i.add_on_deal_id) ? 'addon' : '', ...shipInfo(d) });
+          deal: it.some(i => i.bundle_deal_id) ? 'combo' : it.some(i => i.add_on_deal_id) ? 'addon' : '', ...shipInfo(d),
+          // từng dòng sản phẩm: [sku, sl, giá, item_id, model_id, cờ] — cờ: b = combo, a = hàng mua kèm, v = SKU ảo (bộ nhiều sản phẩm)
+          items: it.map(i => [(i.item_model || {}).sku || (i.product || {}).sku || '', i.amount, Number(i.order_price), i.item_id, i.model_id, (i.bundle_deal_id ? 'b' : '') + (i.is_add_on_sub_item || i.add_on_deal_id ? 'a' : '') + (i.is_virtual_sku ? 'v' : '')]) });
       }
       S.phase = 'products';
       for (const iid of items) {
@@ -149,10 +151,15 @@ window.LG = (() => {
   const N = v => v === undefined ? null : v;
   return {
     start(o, f) { start(o, f); return 'started'; },
+    all(v = true) { S.all = !!v; return S.all; },
+    // đọc lại phí cho các đơn (không hủy) trong n ngày gần nhất, chạy riêng sau start()
+    feesOnly(days = 21) { (async () => { try { S.phase = 'fees'; const cut = Date.now() / 1000 - days * 86400; const need = S.rows.filter(r => !/hủy/i.test(r.s) && r.t >= cut && r.inc == null); S.feeTotal = need.length; S.feeDone = 0;
+      for (const r of need) { Object.assign(r, await fee(r.id)); S.feeDone++; }
+      S.rows.forEach(r => { if (r.inc != null && r.sh != null) r.pv = Math.max(0, r.v - r.sh + (r.sb || 0) - r.paid); }); S.phase = 'done'; } catch (e) { S.err = String(e); S.phase = 'error'; } })(); return 'fees started'; },
     status() { return JSON.stringify({ phase: S.phase, orders: S.rows.length, ads: S.ads.length, fees: S.feeDone + '/' + S.feeTotal, err: S.err, promoErr: S.promoErr || null }); },
     // [sn,t,st,status,qty,value,paid,model,price,province,carrier,fx,sv,pi,tx,voucherShop,voucherShopee,income,sku,return,itemId,ward,shipBuyer,shipFee,shipSubsidy,final,surcharge,deal,shipChannel,express,pickupTime,deliveredTime]
     // chỉ trả về đơn trong cửa sổ đọc phí hoặc chưa ở trạng thái cuối, đơn cũ đã chốt được giữ nguyên khi merge
-    chunk(i) { return S.rows.filter(r => r.t >= S.feeCut || !/^(Đã giao|Đã hủy|Hoàn thành)$/.test(r.s)).slice(i * 5, i * 5 + 5).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid, r.ward, N(r.sb), N(r.sf), N(r.ss), N(r.fin), N(r.surcharge), r.deal || '', r.chan || '', r.exp ? 1 : 0, N(r.tp), N(r.td)])).join('\n'); },
+    chunk(i) { return S.rows.filter(r => S.all || r.t >= S.feeCut || !/^(Đã giao|Đã hủy|Hoàn thành)$/.test(r.s)).slice(i * 5, i * 5 + 5).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid, r.ward, N(r.sb), N(r.sf), N(r.ss), N(r.fin), N(r.surcharge), r.deal || '', r.chan || '', r.exp ? 1 : 0, N(r.tp), N(r.td), r.items || []])).join('\n'); },
     promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
     // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
     pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
