@@ -132,13 +132,23 @@ function normalizeSkus(d) {
   Object.values(MASTER).forEach(M => { M.name = Object.entries(M.names).sort((a, b) => b[1] - a[1])[0]?.[0] || M.code; M.stock = [...M.mids].reduce((s, mid) => s + (MIDX[mid] && parse(MIDX[mid].sku).base === M.code ? +(MIDX[mid].stock || 0) : 0), 0); });
 }
 let SKU_GROUP = '', SKU_Q = '';
+// Dòng sản phẩm cho mã không thuộc dòng máy/ống kính/ống nhòm: phân theo loại phụ kiện thay vì gộp "(khác)"
+function lineFallback(M) {
+  const t = ((M.name || '') + ' ' + (M.code || '')).normalize('NFC');
+  const rules = [[/^GIFT|quà tặng/i, 'Quà tặng'], [/coolshot|đo khoảng cách/i, 'Coolshot (đo khoảng cách)'], [/\bmarine\b/i, 'Marine'], [/\baction\b/i, 'Action'],
+    [/cinema\s*zr|\bZR\b/i, 'ZR'], [/\bZ\s?MC\b|nikkor|\bZ\s?\d{2,3}(-\d{2,3})?\s?mm/i, 'NIKKOR Z'], [/EN-EL|\bpin\b/i, 'Pin máy ảnh'], [/MH-\d|sạc/i, 'Bộ sạc'],
+    [/lens hood|\bHB-\d|loa che/i, 'Loa che (lens hood)'], [/\bNC[- ]?\d|kính lọc|filter/i, 'Kính lọc'], [/nắp|BF-N|LF-N|LC-\d/i, 'Nắp body / ống kính'],
+    [/micro|\bME-/i, 'Micro thu âm'], [/dây đeo|strap/i, 'Dây đeo'], [/túi|balo|bag/i, 'Túi máy ảnh'], [/thẻ nhớ|memory|cfexpress|\bSD\b/i, 'Thẻ nhớ'], [/ngàm|FTZ|adapter/i, 'Ngàm chuyển']];
+  for (const [re, l] of rules) if (re.test(t)) return l;
+  return (M.group || 'Khác') + ' (khác)';
+}
 function renderSkus() {
   const on = CATALOG.length > 0 && SHOP !== 'lf'; $('#skuSection').hidden = !on; if (!on) return;
   const lines = C.ok.flatMap(o => (o.lines || []).map(l => ({ ...l, o })));
   const sell = lines.filter(l => !l.gift), nmv = sum(sell, l => l.v) || 1;
   const by = new Map(); sell.forEach(l => { const k = l.master; if (!by.has(k)) by.set(k, { M: l.M, q: 0, v: 0, n: new Set(), lst: {}, prices: [] }); const x = by.get(k); x.q += l.units; x.v += l.v; x.n.add(l.o.sn); x.lst[l.iid] = (x.lst[l.iid] || 0) + l.units; x.prices.push(l.p / (l.units / l.q)); });
   const grp = {}; by.forEach(x => { const g = x.M.group; grp[g] = grp[g] || { v: 0, q: 0, n: 0 }; grp[g].v += x.v; grp[g].q += x.q; grp[g].n++; });
-  const ln = {}; by.forEach(x => { const k = x.M.line || '(khác)'; ln[k] = ln[k] || { v: 0, q: 0, skus: new Set() }; ln[k].v += x.v; ln[k].q += x.q; ln[k].skus.add(x.M.code); });
+  const ln = {}; by.forEach(x => { const k = x.M.line || lineFallback(x.M); ln[k] = ln[k] || { v: 0, q: 0, skus: new Set() }; ln[k].v += x.v; ln[k].q += x.q; ln[k].skus.add(x.M.code); });
   const gifts = lines.filter(l => l.gift), bundles = sell.filter(l => l.bundle), mapRate = MAPSTAT.lines ? (MAPSTAT.mapped + MAPSTAT.bySku) / MAPSTAT.lines : 1;
   const active = CATALOG.filter(l => l[3] === 1).length;
   $('#skuTiles').innerHTML = [['SKU chuẩn đã bán', String(by.size), `${sum([...by.values()], x => x.q)} sản phẩm · ${C.orders} đơn`], ['Khớp SKU', pct(mapRate, 1), `${MAPSTAT.mapped + MAPSTAT.bySku}/${MAPSTAT.lines} dòng đơn (mọi thời gian)`, mapRate === 1 ? 'free' : 'fs'],
@@ -329,16 +339,19 @@ function colChart(el, o) {
   const every = o.every || Math.max(1, Math.ceil(n / Math.max(3, Math.floor(iw / 56))));
   const showBarLabels = o.barLabels !== false && bw >= 26;
   let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.aria || '')}">`;
+  const gid = 'g' + Math.random().toString(36).slice(2, 8), gmap = new Map();
+  const gfill = c => { if (!gmap.has(c)) gmap.set(c, gid + gmap.size); return `url(#${gmap.get(c)})`; };
+
   for (let i = 0; i <= 4; i++) { const v = mx * i / 4; s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${L - 7}" y="${y(v) + 4}" text-anchor="end">${yFmt(v)}</text>`; if (line) s += `<text class="ax" x="${W - R + 7}" y="${yl(ml * i / 4) + 4}">${y2Fmt(ml * i / 4)}</text>`; }
   labels.forEach((lb, i) => { s += `<rect class="band" data-tip="${i}" x="${(L + i * bw).toFixed(1)}" y="${T - 6}" width="${bw.toFixed(1)}" height="${ih + 6}"/>`; });
   labels.forEach((lb, i) => {
     let acc = 0; const op = active == null || active === i ? 1 : .32;
     if (grouped) { const gw = w / series.length; series.forEach((se, k) => { const v = se.vals[i] || 0; if (v <= 0) return;
-      s += `<rect class="bar" x="${(cx(i) - w / 2 + k * gw).toFixed(1)}" y="${y(v).toFixed(1)}" width="${Math.max(1, gw - 1).toFixed(1)}" height="${Math.max(.5, y(0) - y(v)).toFixed(1)}" rx="${Math.min(4, gw / 2).toFixed(1)}" fill="${se.color}" opacity="${op}"/>`; });
+      s += `<rect class="bar" x="${(cx(i) - w / 2 + k * gw).toFixed(1)}" y="${y(v).toFixed(1)}" width="${Math.max(1, gw - 1).toFixed(1)}" height="${Math.max(.5, y(0) - y(v)).toFixed(1)}" rx="${Math.min(4, gw / 2).toFixed(1)}" fill="${gfill(se.color)}" opacity="${op}"/>`; });
       if (i % every === 0) s += `<text class="ax" x="${cx(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${esc(lb)}</text>`; return; }
     series.forEach((se, k) => { const v = se.vals[i] || 0; if (v <= 0) return; const y0 = y(acc), y1 = y(acc + v); acc += v;
       const top = k === series.length - 1 || !series.slice(k + 1).some(x => x.vals[i] > 0);
-      s += `<rect class="bar" x="${(cx(i) - w / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(.5, y0 - y1).toFixed(1)}" rx="${top ? Math.min(5, w / 2).toFixed(1) : 0}" fill="${se.color}" opacity="${op}"/>`; });
+      s += `<rect class="bar" x="${(cx(i) - w / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(.5, y0 - y1).toFixed(1)}" rx="${top ? Math.min(5, w / 2).toFixed(1) : 0}" fill="${gfill(se.color)}" opacity="${op}"/>`; });
     if (showBarLabels && totals[i] > 0 && String(barLabel(totals[i])).length * 5.9 <= bw + 4) s += `<text class="vl" x="${cx(i).toFixed(1)}" y="${(y(totals[i]) - 5).toFixed(1)}" text-anchor="middle">${barLabel(totals[i])}</text>`;
     if (i % every === 0) s += `<text class="ax" x="${cx(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${esc(lb)}</text>`;
   });
@@ -352,6 +365,7 @@ function colChart(el, o) {
       const bt = y(totals[i]) - 5, near = showBarLabels && totals[i] > 0 && Math.abs(pts[i][1] - 9 - bt) < 13, ly = near ? (pts[i][1] < bt ? pts[i][1] - 9 : pts[i][1] + 17) : pts[i][1] - 9;
       if (lblLine) s += `<text class="vl ln-l" x="${pts[i][0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" style="fill:${ln.color}">${lineLabel(v)}</text>`; });
   });
+  if (gmap.size) s = s.replace('</svg-defs>', '') + `<defs>${[...gmap].map(([c, id]) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:${c}"/><stop offset="1" style="stop-color:${c};stop-opacity:.45"/></linearGradient>`).join('')}</defs>`;
   el.innerHTML = s + '</svg>';
   if (tipFn) bindTips(el, i => tipFn(+i));
   if (onClick) el.querySelectorAll('.band').forEach(h => { h.style.cursor = 'pointer'; h.addEventListener('click', () => { untip(); onClick(+h.dataset.tip); }); });

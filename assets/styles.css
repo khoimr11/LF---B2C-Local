@@ -26,11 +26,11 @@
   --c-brand: #4c6639;
   --c-brand-2: #6f8d58;
   --c-brand-soft: rgba(76, 102, 57, .12);
-  --c-ads: #f08a00;
-  --c-blue: #0a72e8;
-  --c-teal: #2aa5bb;
-  --c-indigo: #5856d6;
-  --c-amber: #d99a00;
+  --c-ads: #ee9a5c;
+  --c-blue: #9a7fd0;
+  --c-teal: #6fb79a;
+  --c-indigo: #dd88a8;
+  --c-amber: #d9b44a;
   --c-warn-2: #e0662b;
   --c-good: #248a3d;
   --c-bad: #d70015;
@@ -38,7 +38,7 @@
   --good-bg: rgba(52, 199, 89, .14);
   --bad-bg: rgba(255, 59, 48, .11);
   --warn-bg: rgba(255, 149, 0, .14);
-  --blue-bg: rgba(0, 122, 255, .11);
+  --blue-bg: rgba(154, 127, 208, .14);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -49,9 +49,9 @@
     --glass: rgba(28, 28, 30, .66); --glass-edge: rgba(255, 255, 255, .12); --glass-shadow: 0 10px 34px rgba(0, 0, 0, .55);
     --card-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .06); --lead-grad: linear-gradient(150deg, #4d6a37 0%, #34492a 60%, #263620 100%);
     --c-brand: #8db36f; --c-brand-2: #a9c98f; --c-brand-soft: rgba(141, 179, 111, .16);
-    --c-ads: #ff9f0a; --c-blue: #0a84ff; --c-teal: #40c8e0; --c-indigo: #7d7aff; --c-amber: #ffd60a; --c-warn-2: #ff7a45;
+    --c-ads: #ffb987; --c-blue: #c4b1f2; --c-teal: #9fd8bf; --c-indigo: #f4aac6; --c-amber: #f3d77e; --c-warn-2: #ff7a45;
     --c-good: #30d158; --c-bad: #ff453a; --c-warn: #ff9f0a;
-    --good-bg: rgba(48, 209, 88, .16); --bad-bg: rgba(255, 69, 58, .16); --warn-bg: rgba(255, 159, 10, .16); --blue-bg: rgba(10, 132, 255, .18);
+    --good-bg: rgba(48, 209, 88, .16); --bad-bg: rgba(255, 69, 58, .16); --warn-bg: rgba(255, 159, 10, .16); --blue-bg: rgba(196, 177, 242, .18);
     color-scheme: dark;
   }
 }
@@ -62,9 +62,9 @@
   --glass: rgba(28, 28, 30, .66); --glass-edge: rgba(255, 255, 255, .12); --glass-shadow: 0 10px 34px rgba(0, 0, 0, .55);
   --card-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .06); --lead-grad: linear-gradient(150deg, #4d6a37 0%, #34492a 60%, #263620 100%);
   --c-brand: #8db36f; --c-brand-2: #a9c98f; --c-brand-soft: rgba(141, 179, 111, .16);
-  --c-ads: #ff9f0a; --c-blue: #0a84ff; --c-teal: #40c8e0; --c-indigo: #7d7aff; --c-amber: #ffd60a; --c-warn-2: #ff7a45;
+  --c-ads: #ffb987; --c-blue: #c4b1f2; --c-teal: #9fd8bf; --c-indigo: #f4aac6; --c-amber: #f3d77e; --c-warn-2: #ff7a45;
   --c-good: #30d158; --c-bad: #ff453a; --c-warn: #ff9f0a;
-  --good-bg: rgba(48, 209, 88, .16); --bad-bg: rgba(255, 69, 58, .16); --warn-bg: rgba(255, 159, 10, .16); --blue-bg: rgba(10, 132, 255, .18);
+  --good-bg: rgba(48, 209, 88, .16); --bad-bg: rgba(255, 69, 58, .16); --warn-bg: rgba(255, 159, 10, .16); --blue-bg: rgba(196, 177, 242, .18);
   color-scheme: dark;
 }
 
@@ -595,3 +595,14 @@ td.up { color: var(--c-good); font-weight: 600; }
 }
 .target-meta .good { color: var(--c-brand); } .target-meta .bad { color: var(--c-red, #d03b3b); }
 .target-meta b { white-space: normal; }
+
+/* ===== Pastel + gradient finish (no blue) ===== */
+:root { --g-brand: linear-gradient(90deg, color-mix(in srgb, var(--c-brand) 55%, #fff) 0%, var(--c-brand) 100%); }
+.bl-bar b { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 50%, var(--card)) 0%, var(--c) 100%); box-shadow: 0 1px 6px color-mix(in srgb, var(--c) 30%, transparent); }
+.ch-row .bar b { background: var(--g-brand); }
+.ring { background: conic-gradient(from -90deg, color-mix(in srgb, var(--c-brand) 45%, #fff) 0%, var(--c-brand) calc(var(--p) * 1%), var(--fill-2) 0); }
+.chart .ln { filter: drop-shadow(0 2px 4px color-mix(in srgb, currentColor 25%, transparent)); }
+.lg-bar { background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 45%, transparent)) !important; }
+.kpi-mini > div, .target-meta div { background: linear-gradient(135deg, var(--card-2, var(--fill-2)) 0%, color-mix(in srgb, var(--c-brand) 7%, var(--card-2, var(--fill-2))) 100%); }
+.wf-track b { background-image: linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,0)); }
+.donut path, .donut circle { filter: saturate(.9); }
