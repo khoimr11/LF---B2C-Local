@@ -4,7 +4,7 @@
 (() => {
   const S = { phase: 'idle', months: [], done: 0, rows: new Map(), log: [], err: null };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const J = async u => (await fetch(u, { credentials: 'include' })).json();
+  const J = async u => { for (let i = 0; ; i++) { try { const t = await (await fetch(u, { credentials: 'include' })).text(); return JSON.parse(t); } catch (e) { if (i >= 5) throw e; await sleep(4000 * (i + 1)); } } };
   const num = v => v == null || v === '' ? 0 : typeof v === 'number' ? v : Number(String(v).replace(/[^\d-]/g, '')) || 0;  // số kiểu VN: 1.140.000
   const ts = v => { if (!v) return null; if (typeof v === 'number') return Math.round((v - 25569) * 86400 - 7 * 3600); const m = String(v).match(/(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/); return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) / 1000 - 7 * 3600) : null; };
   const pad = n => String(n).padStart(2, '0');
