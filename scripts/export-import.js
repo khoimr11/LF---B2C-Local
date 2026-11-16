@@ -5,7 +5,7 @@
   const S = { phase: 'idle', months: [], done: 0, rows: new Map(), log: [], err: null };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const J = async u => { for (let i = 0; ; i++) { try { const t = await (await fetch(u, { credentials: 'include' })).text(); return JSON.parse(t); } catch (e) { if (i >= 5) throw e; await sleep(4000 * (i + 1)); } } };
-  const num = v => v == null || v === '' ? 0 : typeof v === 'number' ? v : Number(String(v).replace(/[^\d-]/g, '')) || 0;  // số kiểu VN: 1.140.000
+  const num = v => v == null || v === '' ? 0 : typeof v === 'number' ? v : (/^-?\d+(\.\d+)?$/.test(String(v).trim()) ? Number(v) : Number(String(v).replace(/[^\d-]/g, ''))) || 0;  // "1140000.00" hoặc "1.140.000"
   const ts = v => { if (!v) return null; if (typeof v === 'number') return Math.round((v - 25569) * 86400 - 7 * 3600); const m = String(v).match(/(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/); return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) / 1000 - 7 * 3600) : null; };
   const pad = n => String(n).padStart(2, '0');
   async function xlsx() { if (!window.XLSX) (0, eval)(await fetch('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').then(r => r.text())); }
@@ -16,7 +16,7 @@
     for (let i = 0; i < 40; i++) { await sleep(1500); const g = await J('/api/v3/settings/get_report/?report_id=' + d.report_id); if (g.data && g.data.status === 2) break; if (g.data && g.data.status > 2) throw new Error('report ' + a + ' status ' + g.data.status); }
     const buf = await (await fetch('/api/v3/settings/download_report/?report_id=' + d.report_id, { credentials: 'include' })).arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' }); const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false });
-    const H = rows[0], c = n => H.indexOf(n);
+    const nz = x => String(x || '').normalize('NFC').trim().toLowerCase(), H = rows[0].map(nz), c = n => H.indexOf(nz(n));
     const I = { sn: c('Mã đơn hàng'), t: c('Ngày đặt hàng'), s: c('Trạng Thái Đơn Hàng'), car: c('Đơn Vị Vận Chuyển'), ship: c('Phương thức giao hàng'), tp: c('Ngày gửi hàng'), ret: c('Trạng thái Trả hàng/Hoàn tiền'),
       psku: c('SKU sản phẩm'), vsku: c('SKU phân loại hàng'), vname: c('Tên phân loại hàng'), price: c('Giá ưu đãi'), qty: c('Số lượng'), paid: c('Tổng số tiền Người mua thanh toán'),
       vch: c('Mã giảm giá của Shop'), sf: c('Phí vận chuyển (dự kiến)'), sb: c('Phí vận chuyển mà người mua trả'), ss: c('Phí vận chuyển tài trợ bởi Shopee (dự kiến)'), td: c('Thời gian hoàn thành đơn hàng'),
