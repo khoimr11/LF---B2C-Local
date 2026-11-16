@@ -31,7 +31,7 @@ button.ghost{background:transparent;color:var(--fg2);border:1px solid var(--sep)
   </section>
   <form class="card" id="fKey">
     <h2>1. Khóa dữ liệu (đăng nhập dashboard)</h2>
-    <label>Email<input id="email" type="email" autocomplete="username" required></label>
+    <label>Email hoặc tên đăng nhập<input id="email" type="text" autocomplete="username" autocapitalize="none" required></label>
     <label>Mật khẩu<input id="pass" type="password" autocomplete="current-password" required></label>
     <button>Lưu khóa</button>
   </form>
@@ -45,7 +45,8 @@ button.ghost{background:transparent;color:var(--fg2);border:1px solid var(--sep)
 <script>
 (() => {
 'use strict';
-const REPO = 'khoimr11/LF---B2C-Local', PATH = 'data/data.enc.json', API = 'https://api.github.com/repos/' + REPO + '/contents/' + PATH;
+const REPO = 'khoimr11/LF---B2C-Local', FILES = { lf: 'data/data.enc.json', nikon: 'data/nikon.enc.json' }, api = shop => 'https://api.github.com/repos/' + REPO + '/contents/' + FILES[shop];
+const KN = shop => shop === 'lf' ? 'lf-key' : 'lf-key-' + shop;
 const $ = s => document.querySelector(s);
 const ls = { get: k => { try { return localStorage.getItem(k) || sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) {} } };
 const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -57,8 +58,8 @@ function refresh() {
   $('#dKey').classList.toggle('on', k); $('#sKey').textContent = k ? 'Đã có khóa dữ liệu' : 'Chưa có khóa dữ liệu';
   $('#dTok').classList.toggle('on', t); $('#sTok').textContent = t ? 'Đã có mã GitHub' : 'Chưa có mã GitHub';
 }
-async function getFile() {
-  const r = await fetch(API + '?ref=main&t=' + Date.now(), { headers: tokH(), cache: 'no-store' });
+async function getFile(shop) {
+  const r = await fetch(api(shop) + '?ref=main&t=' + Date.now(), { headers: tokH(), cache: 'no-store' });
   if (!r.ok) throw new Error('GitHub đọc file lỗi ' + r.status);
   const j = await r.json(); return { sha: j.sha, file: JSON.parse(new TextDecoder().decode(b64d(j.content.replace(/\n/g, '')))) };
 }
@@ -73,7 +74,7 @@ async function encrypt(obj, raw, file) {
 function merge(data, add) {
   const bySn = new Map(data.orders.map(r => [r[0], r])); let added = 0, updated = 0;
   for (const r of add.orders || []) { const old = bySn.get(r[0]); if (!old) { bySn.set(r[0], r); added++; continue; }
-    const m = r.slice(); for (let i = 11; i <= 31; i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null; bySn.set(r[0], m); updated++; }
+    const m = r.slice(); for (let i = 11; i < Math.max(m.length, old.length); i++) if (m[i] === null || m[i] === undefined) m[i] = old[i] ?? null; bySn.set(r[0], m); updated++; }
   data.orders = [...bySn.values()].sort((a, b) => b[1] - a[1]);
   const byDay = new Map((data.ads || []).map(r => [r[0], r])); for (const r of add.ads || []) byDay.set(r[0], r); data.ads = [...byDay.values()].sort((a, b) => a[0] - b[0]);
   if (add.products && add.products.length) data.products = add.products;
@@ -87,16 +88,17 @@ function merge(data, add) {
 }
 let buf = [];
 window.LFSYNC = {
-  ready() { return JSON.stringify({ key: !!ls.get('lf-key'), token: !!ls.get('lf-gh') }); },
+  ready(shop = 'lf') { return JSON.stringify({ shop, key: !!ls.get(KN(shop)), token: !!ls.get('lf-gh') }); },
   reset() { buf = []; return 'ok'; },
   add(s) { buf.push(String(s)); return buf.length + ' parts, ' + buf.join('').length + ' chars'; },
-  async publish() {
-    if (!ls.get('lf-key') || !ls.get('lf-gh')) throw new Error('Thiếu khóa dữ liệu hoặc mã GitHub: mở trang sync.html để thiết lập');
+  async publish(shop = 'lf') {
+    if (!FILES[shop]) throw new Error('Shop không hợp lệ: ' + shop);
+    if (!ls.get(KN(shop)) || !ls.get('lf-gh')) throw new Error('Thiếu khóa dữ liệu hoặc mã GitHub: mở trang sync.html để thiết lập');
     let add; try { add = JSON.parse(buf.join('')); } catch (e) { throw new Error('Gói dữ liệu ghép lại không phải JSON hợp lệ: ' + e.message); }
-    const raw = b64d(ls.get('lf-key')), { sha, file } = await getFile(), data = await decrypt(file, raw), res = merge(data, add);
+    const raw = b64d(ls.get(KN(shop))), { sha, file } = await getFile(shop), data = await decrypt(file, raw), res = merge(data, add);
     const enc = await encrypt(data, raw, file), d = new Date(Date.now() + 7 * 3600e3);
-    const msg = 'data: Shopee sync ' + d.toISOString().slice(0, 16).replace('T', ' ') + ' GMT+7';
-    const r = await fetch(API, { method: 'PUT', headers: { ...tokH(), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, content: b64e(new TextEncoder().encode(JSON.stringify(enc))), sha, branch: 'main' }) });
+    const msg = 'data: ' + (shop === 'lf' ? 'Shopee' : shop + ' Shopee') + ' sync ' + d.toISOString().slice(0, 16).replace('T', ' ') + ' GMT+7';
+    const r = await fetch(api(shop), { method: 'PUT', headers: { ...tokH(), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, content: b64e(new TextEncoder().encode(JSON.stringify(enc))), sha, branch: 'main' }) });
     if (!r.ok) throw new Error('GitHub ghi file lỗi ' + r.status + ' ' + (await r.text()).slice(0, 160));
     const commit = (await r.json()).commit.sha.slice(0, 7);
     const ok = data.orders.filter(o => !/hủy/i.test(o[3])), y = Math.floor((Date.now() / 1000 + 7 * 3600) / 86400) - 1;
@@ -107,12 +109,14 @@ window.LFSYNC = {
 };
 $('#fKey').addEventListener('submit', async e => {
   e.preventDefault();
+  const user = $('#email').value.trim().toLowerCase(), pass = $('#pass').value;
+  const derive = async (salt, iter) => { const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(user + '\n' + pass), 'PBKDF2', false, ['deriveBits']); return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: b64d(salt), iterations: iter || 250000 }, base, 256)); };
   try {
-    const f = await (await fetch('data/data.enc.json?t=' + Date.now(), { cache: 'no-store' })).json();
-    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode($('#email').value.trim().toLowerCase() + '\n' + $('#pass').value), 'PBKDF2', false, ['deriveBits']);
-    const raw = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: b64d(f.salt), iterations: f.iter || 250000 }, base, 256));
-    await decrypt(f, raw); ls.set('lf-key', b64e(raw)); $('#pass').value = ''; log('Đã lưu khóa dữ liệu');
-  } catch (x) { log('Email hoặc mật khẩu không đúng'); }
+    let shops = null;
+    try { const kr = await (await fetch('data/keyring.json?t=' + Date.now(), { cache: 'no-store' })).json(); shops = await Promise.any(kr.users.map(async u => (await decrypt(u, await derive(u.salt, u.iter))).shops)); }
+    catch (x) { const f = await (await fetch('data/data.enc.json?t=' + Date.now(), { cache: 'no-store' })).json(); const raw = await derive(f.salt, f.iter); await decrypt(f, raw); shops = { lf: b64e(raw) }; }
+    Object.entries(shops).forEach(([k, v]) => ls.set(KN(k), v)); $('#pass').value = ''; log('Đã lưu khóa dữ liệu: ' + Object.keys(shops).join(', '));
+  } catch (x) { log('Tài khoản hoặc mật khẩu không đúng'); }
   refresh();
 });
 $('#fTok').addEventListener('submit', async e => {
@@ -124,7 +128,7 @@ $('#fTok').addEventListener('submit', async e => {
   } catch (x) { log('Mã GitHub không dùng được cho repo ' + REPO + ' (' + x.message + ')'); }
   refresh();
 });
-$('#forget').addEventListener('click', () => { ls.del('lf-key'); ls.del('lf-gh'); log('Đã xóa khóa và mã'); refresh(); });
+$('#forget').addEventListener('click', () => { ls.del('lf-key'); ls.del('lf-key-nikon'); ls.del('lf-gh'); log('Đã xóa khóa và mã'); refresh(); });
 refresh();
 })();
 </script>
