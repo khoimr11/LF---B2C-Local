@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=20">
+<link rel="stylesheet" href="assets/styles.css?v=21">
 </head>
 <body>
 
@@ -156,6 +156,12 @@
             <div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: NMV</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: số sản phẩm (trục phải)</span></div>
           </div>
         </div>
+        <div class="card">
+          <div class="card-h"><div><h3>Khung giờ đặt hàng</h3><p class="card-sub">Bấm một cột để lọc theo giờ</p></div><button class="link-btn" id="clearHour" hidden>Bỏ lọc giờ</button></div>
+          <div class="chart" id="hourChart"></div>
+          <div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: NMV theo giờ đặt</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: số đơn (trục phải)</span></div>
+          <p class="foot-note" id="hourNote"></p>
+        </div>
       </section>
 
       <!-- ===== Products & price ===== -->
@@ -240,13 +246,7 @@
           <div class="card-h"><div><h3 id="wardTitle">Phường / xã</h3><p class="card-sub" id="wardSub">Top phường/xã theo NMV</p></div><button class="link-btn" id="wardBack" hidden>Xem tất cả tỉnh</button></div>
           <div class="chart" id="wardChart"></div>
         </div>
-        <div class="cards-2">
-          <div class="card">
-            <div class="card-h"><div><h3>Khung giờ đặt hàng</h3><p class="card-sub">Bấm một cột để lọc theo giờ</p></div><button class="link-btn" id="clearHour" hidden>Bỏ lọc giờ</button></div>
-            <div class="chart" id="hourChart"></div>
-            <div class="legend"><span><i class="lg-bar" style="--c:var(--c-brand)"></i>Cột: NMV theo giờ đặt</span><span><i class="lg-line" style="--c:var(--c-ads)"></i>Đường: số đơn (trục phải)</span></div>
-            <p class="foot-note" id="hourNote"></p>
-          </div>
+        <div class="cards-1">
           <div class="card">
             <div class="card-h"><div><h3>Đơn vị vận chuyển</h3><p class="card-sub">Hàng cồng kềnh · bấm để lọc</p></div></div>
             <div class="donut-wrap"><div id="carrierDonut"></div><div id="carrierTable"></div></div>
@@ -327,7 +327,7 @@
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js?v=20"></script>
+<script src="assets/app.js?v=21"></script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>
