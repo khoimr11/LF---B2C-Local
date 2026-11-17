@@ -150,12 +150,14 @@ window.LG = (() => {
       }
       S.ledger.sort((x, y) => x[0] - y[0]);
       S.phase = 'reviews';  // đánh giá của khách (Quản lý Đánh Giá)
-      for (let pg = 1; pg < 50; pg++) {
-        const r = await j('/api/v3/settings/search_shop_rating_comments_new/?rating_star=5,4,3,2,1&page_number=' + pg + '&page_size=50&cursor=0&from_page_number=1&language=vi');
-        const l = (r.data && r.data.list) || [];
-        l.forEach(c => S.reviews.push([c.ctime, c.rating_star, c.comment || '', (c.images || []).length + (c.videos || []).length, c.order_sn, c.reply && c.reply.comment ? 1 : 0, (c.reply && c.reply.ctime) || 0, c.is_hidden ? 1 : 0]));
-        if (l.length < 50) break;
-      }
+      // phân trang bằng cursor (comment_id cuối trang trước); page_number một mình không lật trang
+      { const seen = new Set(); let cur = 0, from = 1;
+        for (let pg = 1; pg < 100; pg++) {
+          const r = await j('/api/v3/settings/search_shop_rating_comments_new/?rating_star=5,4,3,2,1&page_number=' + pg + '&page_size=50&cursor=' + cur + '&from_page_number=' + from + '&language=vi');
+          const l = ((r.data && r.data.list) || []).filter(c => !seen.has(c.comment_id)); if (!l.length) break;
+          l.forEach(c => { seen.add(c.comment_id); S.reviews.push([c.ctime, c.rating_star, c.comment || '', (c.images || []).length + (c.videos || []).length, c.order_sn, c.reply && c.reply.comment ? 1 : 0, (c.reply && c.reply.ctime) || 0, c.is_hidden ? 1 : 0]); });
+          cur = l[l.length - 1].comment_id; from = pg;
+        } }
       S.phase = 'promo';  // Flash Sale, chương trình giảm giá / combo / mua kèm, voucher, hiệu quả 7 ngày của từng công cụ
       try { await promo(now - orderDays * 86400); } catch (e) { S.promoErr = String(e); }
       S.phase = 'fees';
