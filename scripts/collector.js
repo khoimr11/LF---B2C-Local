@@ -163,7 +163,7 @@ window.LG = (() => {
         S.rows.push({ id, sn: d.order_sn, t: d.create_time, st: d.status, s: (d.status_info_v2 || {}).status || '',
           q: it.reduce((s, i) => s + i.amount, 0), v: it.reduce((s, i) => s + i.amount * Number(i.order_price), 0), paid: Number(d.total_price),
           m: it.map(i => (i.item_model || {}).name).join('/'), p: Number((it[0] || {}).order_price || 0),
-          prov: (a[a.length - 1] || '').replace(/^\*+/, '').replace('Thành phố ', '').replace('Tỉnh ', ''), ward: (/^(Quận|Huyện|Thị xã|Thành phố|Thành Phố|Thị Xã)\s/.test((a[a.length - 2] || '').replace(/^\*+/, '')) ? (a[a.length - 3] || '').replace(/^\*+/, '') + '|' : '') + (a[a.length - 2] || '').replace(/^\*+/, ''),  // địa chỉ cũ: 'Phường X|Quận Y' để map sang phường/xã mới car: (d.fulfillment_carrier_name || '').split(' ')[0] || null,
+          prov: (a[a.length - 1] || '').replace(/^\*+/, '').replace('Thành phố ', '').replace('Tỉnh ', ''), ward: (/^(Quận|Huyện|Thị xã|Thành phố|Thành Phố|Thị Xã)\s/.test((a[a.length - 2] || '').replace(/^\*+/, '')) ? (a[a.length - 3] || '').replace(/^\*+/, '') + '|' : '') + (a[a.length - 2] || '').replace(/^\*+/, ''), car: (d.fulfillment_carrier_name || '').split(' ')[0] || null,  // ward: địa chỉ cũ ghi 'Phường X|Quận Y' để map sang phường/xã mới
           sku: it.map(i => (i.item_model || {}).sku || (i.product || {}).sku).join('/'), ret: d.return_id ? 1 : 0, iid: (it[0] || {}).item_id || null,
           deal: it.some(i => i.bundle_deal_id) ? 'combo' : it.some(i => i.add_on_deal_id) ? 'addon' : '', ...shipInfo(d),
           // từng dòng sản phẩm: [sku, sl, giá, item_id, model_id, cờ] — cờ: b = combo, a = hàng mua kèm, v = SKU ảo (bộ nhiều sản phẩm)
