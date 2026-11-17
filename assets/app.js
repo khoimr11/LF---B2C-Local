@@ -986,7 +986,7 @@ function start(d) {
   render();
 }
 // ===== Đơn vị hành chính mới (từ 1/7/2025): đổi tỉnh/quận/phường cũ sang 34 tỉnh + phường/xã mới =====
-let WM = null; const WMC = new Map(); const WMP = fetch('assets/wardmap.json?v=2').then(r => r.json()).catch(() => null);
+let WM = null; const WMC = new Map(); const WMP = fetch('assets/wardmap.json?v=3').then(r => r.json()).catch(() => null);
 const wmN = (s, k) => { s = String(s || '').normalize('NFC').trim().toLowerCase().replace(/^…/, '');
   s = k === 'p' ? s.replace(/^(thành phố|tỉnh|tp\.?)\s*/, '') : k === 'd' ? s.replace(/^(thành phố|quận|huyện|thị xã|tp\.?)\s+/, '') : s.replace(/^(phường|xã|thị trấn|đặc khu)\s+/, '');
   return s.replace(/\s*[-–]\s*/g, ' - ').replace(/\s+/g, ' '); };
@@ -994,10 +994,13 @@ const DIST_RE = /^(quận|huyện|thị xã|thành phố)\s/i;
 function remapPlace(o) {
   if (!WM) return; const op = wmN(o.prov, 'p'), pi = WM.p[op]; if (pi == null) return;
   const np = WM.np[pi], newSet = WM.n[pi] || [], w0 = o.ward || ''; o.provOld = o.prov; o.wardOld = w0; o.prov = np;
-  if (w0.includes('|')) { const [w, d] = w0.split('|'), dk = op + '|' + wmN(d, 'd') + '|'; let hit = WM.w[dk + wmN(w, 'w')];
+  if (w0.includes('|')) { const [w, d] = w0.split('|'), op2 = (WM.pa || {})[op] || op, dd = op2 + '|' + wmN(d, 'd'), dk = ((WM.da || {})[dd] || dd) + '|'; let hit = WM.w[dk + wmN(w, 'w')];
     if (!hit) { // Shopee che đầu tên ("hường 6", "ng Hòa Khánh Bắc"): khớp theo phần đuôi trong cùng quận cũ
-      const m = String(w).normalize('NFC').toLowerCase().trim(); const cs = m.length >= 3 ? Object.keys(WM.w).filter(k => k.startsWith(dk) && ['phường ', 'xã ', 'thị trấn ', ''].some(p => (p + k.slice(dk.length)).endsWith(m))) : [];
-      if (cs.length === 1) hit = WM.w[cs[0]]; }
+      const keys = Object.keys(WM.w).filter(k => k.startsWith(dk)), pre = ['phường ', 'xã ', 'thị trấn ', ''];
+      const fold = x => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase().trim();
+      for (const f of [x => String(x).normalize('NFC').toLowerCase().trim(), fold]) {   // khớp đúng dấu trước, rồi mới bỏ dấu
+        const m = f(w); if (m.length < 3) break; const cs = keys.filter(k => pre.some(p => f(p + k.slice(dk.length)).endsWith(m)));
+        if (cs.length === 1) { hit = WM.w[cs[0]]; break; } } }
     o.ward = hit ? hit[1] : w + ' (' + d + ', cũ)'; return; }
   const wn = wmN(w0, 'w'); if (newSet.includes(wn)) return;
   if (DIST_RE.test(w0.replace(/^…/, ''))) { o.ward = w0.replace(/^…/, '') + ' (cũ)'; return; }
