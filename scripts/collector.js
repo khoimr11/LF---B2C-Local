@@ -49,6 +49,26 @@ window.LG = (() => {
       sb: g(o, 'Phí vận chuyển Người mua trả') || 0, sf: neg(g(o, 'Phí vận chuyển thực tế', 'Phí vận chuyển ước tính')), ss: g(o, 'Phí vận chuyển được trợ giá từ Shopee', 'Phí vận chuyển được trợ giá từ Shopee ước tính') || 0 };
   };
   const P = (u, b) => j(u, b);
+  // Live & Video theo THÁNG (timeDim=1m nhận endDate = ngày cuối tháng): người xem (giới tính, tuổi, follow, khung giờ, địa điểm), danh sách video/phiên live, sản phẩm
+  async function vlMonths(fromYm) {
+    S.vlMonths = {}; const pad = n => String(n).padStart(2, '0'), now = new Date(Date.now() + 7 * 3600e3);
+    const g = async u => { for (let i = 0; i < 3; i++) { try { const j = await (await fetch(u, { credentials: 'include' })).json(); return j && j.code === 0 ? j.data : null; } catch (e) { await new Promise(r => setTimeout(r, 1500)); } } return null; };
+    const flat = o => { const r = {}; for (const [k, v] of Object.entries(o || {})) { if (/url|cover|img|image|mmsVid|userId|streamerId/i.test(k)) continue; const x = v && typeof v === 'object' ? (v.value ?? v.current ?? v.val ?? null) : v; if (x === null || x === undefined || typeof x === 'object') continue; r[k] = typeof x === 'string' ? x.slice(0, 90) : x; } return r; };
+    const all = async u => { const out = []; for (let pg = 1; pg < 20; pg++) { const d = await g(u + '&page=' + pg + '&pageSize=50'); const l = (d && d.list) || []; out.push(...l.map(flat)); if (l.length < 50) break; } return out; };
+    let [y, m] = fromYm.split('-').map(Number);
+    while (y < now.getUTCFullYear() || (y === now.getUTCFullYear() && m <= now.getUTCMonth() + 1)) {
+      const last = new Date(Date.UTC(y, m, 0)), end = last > now ? new Date(now - 86400e3) : last, e = end.getUTCFullYear() + '-' + pad(end.getUTCMonth() + 1) + '-' + pad(end.getUTCDate()), q = '?endDate=' + e + '&timeDim=1m', ym = y + '-' + pad(m);
+      const [vo, lo] = await Promise.all([g('/api/supply/sellercenter/video/v3/overview' + q), g('/api/supply/lm/sellercenter/overview/v3' + q)]);
+      const vAct = vo && vo.performance && (vo.performance.totalViews || (vo.myShopTransaction || {}).placedOrder), lAct = lo && lo.performance && (lo.performance.totalSessionCnt || lo.performance.totalViews);
+      if (vAct || lAct) {
+        const rec = {};
+        if (vAct) { rec.vDemo = await g('/api/supply/sellercenter/video/v2/demographics' + q); rec.vList = await all('/api/supply/sellercenter/video/v2/videolist' + q); rec.vProd = await all('/api/supply/sellercenter/video/v2/productlist' + q); }
+        if (lAct) { rec.lDemo = await g('/api/supply/lm/sellercenter/userDemographics' + q); rec.lList = await all('/api/supply/lm/sellercenter/liveList/v2' + q); rec.lProd = await all('/api/supply/lm/sellercenter/productsList/v2' + q); }
+        S.vlMonths[ym] = rec;
+      }
+      if (++m > 12) { m = 1; y++; }
+    }
+  }
   async function videoLive(days) {
     S.videoDaily = []; S.liveDaily = []; const pad = n => String(n).padStart(2, '0');
     const g = async u => { for (let i = 0; i < 3; i++) { try { return await (await fetch(u, { credentials: 'include' })).json(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); } } return null; };
@@ -187,6 +207,7 @@ window.LG = (() => {
       try { await promo(now - orderDays * 86400); } catch (e) { S.promoErr = String(e); }
       S.phase = 'video';  // Shopee Video & Live (Creator Center) theo ngày; API chỉ nhận đúng 1 ngày (timeDim=1d) cho mỗi lần gọi
       try { await videoLive(S.all ? Math.ceil((Date.now() / 1000 - Date.UTC(2023, 6, 1) / 1000) / 86400) : 14); } catch (e) { S.videoErr = String(e); }
+      try { const d0 = new Date(Date.now() + 7 * 3600e3 - 40 * 86400e3); await vlMonths(S.all ? '2023-07' : d0.getUTCFullYear() + '-' + String(d0.getUTCMonth() + 1).padStart(2, '0')); } catch (e) { S.videoErr = String(e); }
       S.phase = 'fees';
       const need = S.rows.filter(r => !/hủy/i.test(r.s) && r.t >= feeCut); S.feeTotal = need.length;
       for (const r of need) { const x = await fee(r.id); if (x.inc == null) x.retry = 1; Object.assign(r, x); S.feeDone++; }
@@ -210,7 +231,7 @@ window.LG = (() => {
     promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
     // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
     pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
-      S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()), catalog: S.catalog || [], videoDaily: S.videoDaily || [], liveDaily: S.liveDaily || [] });
+      S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()), catalog: S.catalog || [], videoDaily: S.videoDaily || [], liveDaily: S.liveDaily || [], vlMonths: S.vlMonths || {} });
       return JSON.stringify({ parts: Math.ceil(S.pack.length / 800), chars: S.pack.length, orders: rows.length, audit: this.audit() }); },
     // mỗi phần trả về dưới dạng chuỗi JSON (có dấu nháy) để dán nguyên văn vào LFSYNC.add(...) trên trang sync.html
     // gửi gói dữ liệu sang trang sync.html đã mở tab Shopee này (không đi qua Claude, không tốn token)
