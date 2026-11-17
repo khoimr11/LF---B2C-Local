@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=21">
+<link rel="stylesheet" href="assets/styles.css?v=22">
 </head>
 <body>
 
@@ -227,6 +227,11 @@
           <div class="card"><div class="card-h"><div><h3>Mã giảm giá của shop</h3><p class="card-sub">Đã dùng / giới hạn lượt dùng, số lượt khách đã lưu mã</p></div></div><div class="tbl-scroll" id="vchTable"></div></div>
         </div>
         <div class="card" id="promoKpiCard"></div>
+        <div class="card" id="videoCard">
+          <div class="card-h"><div><h3>Shopee Video & Livestream</h3><p class="card-sub" id="videoSub"></p></div></div>
+          <div class="tiles video-tiles" id="videoTiles"></div>
+          <div class="tbl-scroll" id="videoTable"></div>
+        </div>
       </section>
 
       <!-- ===== Customers & region ===== -->
@@ -327,7 +332,7 @@
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js?v=21"></script>
+<script src="assets/app.js?v=22"></script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>

@@ -606,3 +606,6 @@ td.up { color: var(--c-good); font-weight: 600; }
 .kpi-mini > div, .target-meta div { background: linear-gradient(135deg, var(--card-2, var(--fill-2)) 0%, color-mix(in srgb, var(--c-brand) 7%, var(--card-2, var(--fill-2))) 100%); }
 .wf-track b { background-image: linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,0)); }
 .donut path, .donut circle { filter: saturate(.9); }
+
+.video-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 12px; }
+@media (max-width: 900px) { .video-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

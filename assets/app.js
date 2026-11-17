@@ -77,6 +77,7 @@ const SHOPS = {
   lf: { file: 'data/data.enc.json', name: 'Living Furniture', sub: 'Shopee · living_furniture', logo: 'assets/logo.png', slug: 'living-furniture' },
   nikon: { file: 'data/nikon.enc.json', name: 'Nikon Việt Nam', sub: 'Shopee · Nikon', logo: 'assets/nikon.png', slug: 'nikon' }
 };
+let VIDEOS = [], VIDAT = null, LIVES = [];
 let SHOP = 'lf', KEYS = {}, BOUND = false;
 async function fetchEnc(shop = 'lf') {
   const r = await fetch(SHOPS[shop].file + '?ts=' + Date.now(), { cache: 'no-store' });
@@ -204,6 +205,7 @@ function prepare(d) {
   ORDERS.forEach(o => { if (o.ward && !WARD_PREFIX.test(o.ward)) { const m = [...(fullW[o.prov] || [])].find(w => w.endsWith(o.ward)); o.ward = m || '…' + o.ward; } if (!o.ward) o.ward = 'Không rõ'; });
   ORDERS.forEach(remapPlace);
 
+  VIDEOS = (d.videos || []).map(r => ({ t: r[0], title: r[1], views: r[2] || 0, likes: r[3] || 0, cmt: r[4] || 0, prods: r[5] || 0, dur: r[6] || '' })).sort((x, y) => y.t - x.t); VIDAT = d.videosAt || null; LIVES = d.lives || [];
   LEDGER = (d.ledger || []).map(r => ({ day: dayKey(r[0]), kind: r[1], amt: r[2] || 0, type: r[3] || '', from: r[4] || '' }))
     .sort((a, b) => a.day - b.day || (a.kind === 'spend') - (b.kind === 'spend'));
   ADSPLIT = {}; WALLET = { paidIn: 0, freeIn: 0, paidUsed: 0, freeUsed: 0, freeBal: 0, paidBal: 0, hasLedger: LEDGER.length > 0 };
@@ -418,7 +420,7 @@ function render() {
   $('#activeFilters').innerHTML = filt.map(f => `<span>${esc(f)}</span>`).join('');
   $('#heroNote').textContent = (filt.length ? 'Đang lọc: ' + filt.join(' · ') + ' · ' : '') + `${C.orders} đơn hợp lệ · ${C.units} sản phẩm · ${C.cxN} đơn hủy`;
   syncControls();
-  [renderBiz, renderWaterfall, renderGroups, renderTarget, renderKpi, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
+  [renderBiz, renderWaterfall, renderGroups, renderTarget, renderKpi, renderVideos, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
    renderSkus, renderPromos, renderRegion, renderProv, renderWard, renderHour, renderCarrier, renderExpress, renderReviews, renderAds, renderOrders].forEach(f => { try { f(); } catch (e) { console.error(f.name, e); } });
   if (SHOP !== 'lf') relabel();
 }
@@ -711,6 +713,14 @@ const SRC = { fs: ['Flash Sale', 'var(--c-ads)'], disc: ['Giá khuyến mãi th�
 const hm = t => { const d = new Date((t + TZ) * 1000); return p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()); };
 const slotLabel = f => dm(dayKey(f.a)) + ' ' + hm(f.a) + '–' + hm(f.b);
 const inRange = (a, b) => b >= (S.from * DAY - TZ) && a <= ((S.to + 1) * DAY - TZ);
+function renderVideos() {
+  const el = $('#videoTiles'); if (!el) return;
+  const v = VIDEOS, views = sum(v, x => x.views), likes = sum(v, x => x.likes), cmt = sum(v, x => x.cmt), last = v[0];
+  $('#videoSub').textContent = v.length ? `Video đã đăng trên Shopee Video${VIDAT ? ' · số liệu chụp ngày ' + dmy(dayKey(VIDAT)) : ''} · Livestream: ${LIVES.length ? LIVES.length + ' phiên' : 'chưa có phiên nào'}` : 'Shop chưa đăng video và chưa livestream trên Shopee (Creator Center không có số liệu).';
+  el.innerHTML = [['Video đã đăng', full(v.length)], ['Lượt xem', full(views)], ['Lượt thích', full(likes)], ['Bình luận', full(cmt)], ['Video gần nhất', last ? dmy(dayKey(last.t)) : '—'], ['Phiên livestream', full(LIVES.length)]]
+    .map(([l, x]) => `<div class="tile"><span class="tile-l">${l}</span><span class="tile-v">${x}</span></div>`).join('');
+  $('#videoTable').innerHTML = v.length ? `<table><thead><tr><th>Ngày đăng</th><th>Video</th><th class="r">Thời lượng</th><th class="r">Lượt xem</th><th class="r">Thích</th><th class="r">Bình luận</th><th class="r">SP gắn</th></tr></thead><tbody>${v.map(x => `<tr><td>${dmy(dayKey(x.t))}</td><td>${esc(x.title)}</td><td class="r">${x.dur}</td><td class="r">${full(x.views)}</td><td class="r">${x.likes}</td><td class="r">${x.cmt}</td><td class="r">${x.prods}</td></tr>`).join('')}</tbody></table>` : '';
+}
 function renderPromos() {
   const ok = C.ok, by = k => ok.filter(o => o.src === k), n = C.nmv || 1;
   const grp = k => { const os = by(k), q = sum(os, o => o.q), v = sum(os, o => o.v); return { os, q, v, net: sum(os, o => o.prodNet), n: os.length }; };
