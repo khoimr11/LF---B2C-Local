@@ -77,7 +77,7 @@ const SHOPS = {
   lf: { file: 'data/data.enc.json', name: 'Living Furniture', sub: 'Shopee · living_furniture', logo: 'assets/logo.png', slug: 'living-furniture' },
   nikon: { file: 'data/nikon.enc.json', name: 'Nikon Việt Nam', sub: 'Shopee · Nikon', logo: 'assets/nikon.png', slug: 'nikon' }
 };
-let VIDEOS = [], VIDAT = null, LIVES = [], VDAY = [], LDAY = [];
+let VIDEOS = [], VIDAT = null, LIVES = [], VDAY = [], LDAY = [], VLM = {};
 let SHOP = 'lf', KEYS = {}, BOUND = false;
 async function fetchEnc(shop = 'lf') {
   const r = await fetch(SHOPS[shop].file + '?ts=' + Date.now(), { cache: 'no-store' });
@@ -205,7 +205,7 @@ function prepare(d) {
   ORDERS.forEach(o => { if (o.ward && !WARD_PREFIX.test(o.ward)) { const m = [...(fullW[o.prov] || [])].find(w => w.endsWith(o.ward)); o.ward = m || '…' + o.ward; } if (!o.ward) o.ward = 'Không rõ'; });
   ORDERS.forEach(remapPlace);
 
-  VIDEOS = (d.videos || []).map(r => ({ t: r[0], title: r[1], views: r[2] || 0, likes: r[3] || 0, cmt: r[4] || 0, prods: r[5] || 0, dur: r[6] || '' })).sort((x, y) => y.t - x.t); VIDAT = d.videosAt || null; LIVES = d.lives || [];
+  VIDEOS = (d.videos || []).map(r => ({ t: r[0], title: r[1], views: r[2] || 0, likes: r[3] || 0, cmt: r[4] || 0, prods: r[5] || 0, dur: r[6] || '' })).sort((x, y) => y.t - x.t); VIDAT = d.videosAt || null; LIVES = d.lives || []; VLM = d.vlMonths || {};
   // [ngày, xem, người xem, xem >3s, tg xem TB ms, GMV đặt, GMV xác nhận, đơn đặt, đơn xác nhận, sp, người mua, thêm giỏ, hiển thị SP, click SP, thích, bình luận, chia sẻ, follow mới, tỷ lệ xem hết]
   VDAY = (d.videoDaily || []).map(r => ({ day: dayKey(r[0]), views: r[1], viewers: r[2], eff: r[3], avgMs: r[4], gmvP: r[5], gmv: r[6], ordP: r[7], ord: r[8], items: r[9], buyers: r[10], atc: r[11], imp: r[12], clk: r[13], like: r[14], cmt: r[15], share: r[16], fol: r[17] }));
   // [ngày, số phiên, tổng thời lượng ms, người xem, lượt xem, PCU, tg xem TB ms, người xem tương tác, GMV đặt, GMV xác nhận, đơn đặt, đơn xác nhận, sp, người mua, thêm giỏ, click SP, thích, bình luận, chia sẻ, follow mới]
@@ -424,7 +424,7 @@ function render() {
   $('#activeFilters').innerHTML = filt.map(f => `<span>${esc(f)}</span>`).join('');
   $('#heroNote').textContent = (filt.length ? 'Đang lọc: ' + filt.join(' · ') + ' · ' : '') + `${C.orders} đơn hợp lệ · ${C.units} sản phẩm · ${C.cxN} đơn hủy`;
   syncControls();
-  [renderBiz, renderWaterfall, renderGroups, renderTarget, renderKpi, renderVideos, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
+  [renderBiz, renderWaterfall, renderGroups, renderTarget, renderKpi, renderVideos, renderVL, renderChannels, renderDaily, renderMonthly, renderWeekday, renderPrice, renderMulti, renderSku,
    renderSkus, renderPromos, renderRegion, renderProv, renderWard, renderHour, renderCarrier, renderExpress, renderReviews, renderAds, renderOrders].forEach(f => { try { f(); } catch (e) { console.error(f.name, e); } });
   if (SHOP !== 'lf') relabel();
 }
@@ -738,6 +738,36 @@ function renderVideos() {
   const v = VIDEOS;
   $('#videoTable').innerHTML = v.length ? `<h4 class="tbl-cap">Video đã đăng${VIDAT ? ' · số liệu chụp ' + dmy(dayKey(VIDAT)) : ''}</h4><table><thead><tr><th>Ngày đăng</th><th>Video</th><th class="r">Thời lượng</th><th class="r">Lượt xem</th><th class="r">Thích</th><th class="r">Bình luận</th><th class="r">SP gắn</th></tr></thead><tbody>${v.map(x => `<tr><td>${dmy(dayKey(x.t))}</td><td>${esc(x.title)}</td><td class="r">${x.dur}</td><td class="r">${full(x.views)}</td><td class="r">${x.likes}</td><td class="r">${x.cmt}</td><td class="r">${x.prods}</td></tr>`).join('')}</tbody></table>` : '';
   const lt = $('#liveTable'); if (lt) lt.innerHTML = LDAY.length ? `<h4 class="tbl-cap">Các ngày livestream (toàn bộ)</h4><table><thead><tr><th>Ngày</th><th class="r">Phiên</th><th class="r">Thời lượng</th><th class="r">Người xem</th><th class="r">PCU</th><th class="r">Click SP</th><th class="r">Thêm giỏ</th><th class="r">Đơn đặt / xác nhận</th><th class="r">Doanh thu xác nhận</th><th class="r">Thích</th><th class="r">Follow mới</th></tr></thead><tbody>${LDAY.slice().reverse().map(x => `<tr><td>${dmy(x.day)}</td><td class="r">${x.sess}</td><td class="r">${(x.durMs / 3.6e6).toFixed(1)} giờ</td><td class="r">${full(x.viewers)}</td><td class="r">${x.pcu}</td><td class="r">${x.clk}</td><td class="r">${x.atc}</td><td class="r">${x.ordP} / ${x.ord}</td><td class="r">${full(x.gmv)} ₫</td><td class="r">${full(x.like)}</td><td class="r">+${x.fol}</td></tr>`).join('')}</tbody></table>` : '';
+}
+// ===== Live & Video theo tháng: người xem, từng video, từng phiên, sản phẩm =====
+const AGE_L = { '-1': 'Không rõ', 0: '18–24', 1: '25–34', 2: '35–44', 3: '45–54', 4: '55+' };
+function vlInRange() { const ks = Object.keys(VLM).sort(), a = keyToISO(C.a).slice(0, 7), b = keyToISO(C.b).slice(0, 7); return ks.filter(k => k >= a && k <= b).map(k => [k, VLM[k]]); }
+function demoMerge(list) { const o = { gender: {}, age: {}, identity: {}, activity: {}, location: {} }; list.forEach(d => { if (!d) return; for (const g of Object.keys(o)) for (const [k, v] of Object.entries(d[g] || {})) o[g][k] = (o[g][k] || 0) + (+v || 0); }); return o; }
+function demoHtml(o) {
+  const bar = (rows) => { const t = rows.reduce((s, r) => s + r[1], 0); if (!t) return '<p class="empty-note">Không có dữ liệu</p>'; return rows.map(([l, v]) => `<div class="dm-r"><span>${esc(l)}</span><i><b style="width:${(v / t * 100).toFixed(1)}%"></b></i><em>${full(v)} · ${pct(v / t, 0)}</em></div>`).join(''); };
+  const G = { male: 'Nam', female: 'Nữ', unknown: 'Không rõ' }, I = { follow: 'Đã theo dõi shop', unfollow: 'Chưa theo dõi' };
+  const hours = Array.from({ length: 24 }, (_, h) => o.activity[h] || 0), mh = Math.max(1, ...hours);
+  const loc = Object.entries(o.location).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  return `<div class="dm-grid"><div><h4>Giới tính</h4>${bar(Object.entries(o.gender).map(([k, v]) => [G[k] || k, v]))}</div><div><h4>Theo dõi shop</h4>${bar(Object.entries(o.identity).map(([k, v]) => [I[k] || k, v]))}</div>
+    <div><h4>Độ tuổi</h4>${bar(Object.keys(o.age).sort((a, b) => a - b).map(k => [AGE_L[k] || k, o.age[k]]))}</div><div><h4>Địa điểm</h4>${bar(loc)}</div>
+    <div class="dm-wide"><h4>Hoạt động theo giờ</h4>${hours.some(x => x) ? `<div class="dm-hours">${hours.map((v, h) => `<i title="${h}h: ${v}"><b style="height:${(v / mh * 100).toFixed(0)}%"></b><s>${h % 3 ? '' : h + 'h'}</s></i>`).join('')}</div>` : '<p class="empty-note">Không có dữ liệu</p>'}</div></div>`;
+}
+function renderVL() {
+  const el = $('#vDemo'); if (!el) return; const M = vlInRange();
+  const vD = M.map(([, r]) => r.vDemo).filter(Boolean), lD = M.map(([, r]) => r.lDemo).filter(Boolean);
+  $('#vDemoSub').textContent = vD.length ? `Cộng dồn ${vD.length} tháng có video trong khoảng chọn` : 'Không có video trong khoảng này'; el.innerHTML = demoHtml(demoMerge(vD));
+  $('#lDemoSub').textContent = lD.length ? `Cộng dồn ${lD.length} tháng có livestream trong khoảng chọn` : 'Không có livestream trong khoảng này'; $('#lDemo').innerHTML = demoHtml(demoMerge(lD));
+  // từng video: cộng dồn theo postId
+  const vm = new Map(); M.forEach(([, r]) => (r.vList || []).forEach(x => { const k = x.postId || x.title; const o = vm.get(k) || { title: x.title, ptime: x.ptime, duration: x.duration, views: 0, likes: 0, comments: 0, shares: 0, po: 0, co: 0, ps: 0, cs: 0, items: 0, cr: [] };
+    o.views += x.views || 0; o.likes += x.likes || 0; o.comments += x.comments || 0; o.shares += x.shares || 0; o.po += x.placedOrders || 0; o.co += x.confirmedOrders || 0; o.ps += x.placedSales || 0; o.cs += x.confirmedSales || 0; o.items += x.confirmedItemSold || 0; if (x.completionRate != null) o.cr.push(x.completionRate); vm.set(k, o); }));
+  const vr = [...vm.values()].sort((a, b) => b.views - a.views);
+  $('#vPerf').innerHTML = vr.length ? `<table><thead><tr><th>Video</th><th>Ngày đăng</th><th class="r">Thời lượng</th><th class="r">Lượt xem</th><th class="r">Xem hết TB</th><th class="r">Thích</th><th class="r">Bình luận</th><th class="r">Chia sẻ</th><th class="r">Đơn đặt / xác nhận</th><th class="r">Doanh thu xác nhận</th></tr></thead><tbody>${vr.map(o => `<tr><td>${esc(o.title || '')}</td><td>${o.ptime ? dmy(dayKey(o.ptime / 1000)) : '–'}</td><td class="r">${o.duration ? Math.round(o.duration / 1000) + 's' : '–'}</td><td class="r">${full(o.views)}</td><td class="r">${o.cr.length ? pct(o.cr.reduce((a, b) => a + b, 0) / o.cr.length, 1) : '–'}</td><td class="r">${o.likes}</td><td class="r">${o.comments}</td><td class="r">${o.shares}</td><td class="r">${o.po} / ${o.co}</td><td class="r">${full(o.cs)} ₫</td></tr>`).join('')}</tbody></table>` : '<p class="empty-note">Không có video trong khoảng này.</p>';
+  const ls = []; M.forEach(([, r]) => (r.lList || []).forEach(x => ls.push(x))); const seen = new Set(), lr = ls.filter(x => { const k = x.sessionId || x.startTime; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+  $('#lPerf').innerHTML = lr.length ? `<table><thead><tr><th>Phiên live</th><th>Bắt đầu</th><th class="r">Thời lượng</th><th class="r">Người xem</th><th class="r">Xem TB</th><th class="r">Tương tác</th><th class="r">Bình luận</th><th class="r">Thêm giỏ</th><th class="r">Đơn đặt / xác nhận</th><th class="r">Doanh thu xác nhận</th></tr></thead><tbody>${lr.map(x => `<tr><td>${esc(x.title || '')}</td><td>${x.startTime ? dmy(dayKey(x.startTime / 1000)) + ' ' + new Date(x.startTime + 7 * 3600e3).toISOString().slice(11, 16) : '–'}</td><td class="r">${x.duration ? (x.duration / 3.6e6).toFixed(1) + ' giờ' : '–'}</td><td class="r">${full(x.viewers || 0)}</td><td class="r">${x.avgViewsDuration ? Math.round(x.avgViewsDuration / 1000) + 's' : '–'}</td><td class="r">${full(x.engagedUv || 0)}</td><td class="r">${x.comments || 0}</td><td class="r">${x.atc || 0}</td><td class="r">${x.placedOrders || 0} / ${x.confirmedOrders || 0}</td><td class="r">${full(x.confirmedSales || 0)} ₫</td></tr>`).join('')}</tbody></table>` : '<p class="empty-note">Không có phiên livestream trong khoảng này.</p>';
+  const pm = new Map(); M.forEach(([, r]) => [['Video', r.vProd], ['Live', r.lProd]].forEach(([src, l]) => (l || []).forEach(x => { const k = src + '|' + (x.itemId || x.name || x.title); const o = pm.get(k) || { src, name: x.name || x.title || '', clicks: 0, atc: 0, po: 0, co: 0, cs: 0 };
+    o.clicks += x.clicks || x.productClicks || x.clickUv || 0; o.atc += x.atc || 0; o.po += x.placedOrders || 0; o.co += x.confirmedOrders || 0; o.cs += x.confirmedSales || 0; pm.set(k, o); })));
+  const pr = [...pm.values()].sort((a, b) => b.cs - a.cs || b.clicks - a.clicks);
+  $('#vlProd').innerHTML = pr.length ? `<table><thead><tr><th>Nguồn</th><th>Sản phẩm</th><th class="r">Click</th><th class="r">Thêm giỏ</th><th class="r">Đơn đặt / xác nhận</th><th class="r">Doanh thu xác nhận</th></tr></thead><tbody>${pr.map(o => `<tr><td>${o.src}</td><td>${esc(o.name)}</td><td class="r">${o.clicks}</td><td class="r">${o.atc}</td><td class="r">${o.po} / ${o.co}</td><td class="r">${full(o.cs)} ₫</td></tr>`).join('')}</tbody></table>` : '<p class="empty-note">Không có sản phẩm gắn video/live trong khoảng này.</p>';
 }
 function renderPromos() {
   const ok = C.ok, by = k => ok.filter(o => o.src === k), n = C.nmv || 1;

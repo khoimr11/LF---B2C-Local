@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=23">
+<link rel="stylesheet" href="assets/styles.css?v=24">
 </head>
 <body>
 
@@ -51,6 +51,7 @@
       <a href="#products" data-nav="products"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>Sản phẩm & giá</a>
       <a href="#promos" data-nav="promos"><svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Khuyến mãi & Flash Sale</a>
       <a href="#customers" data-nav="customers"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Khách hàng & khu vực</a>
+      <a href="#live" data-nav="live"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg>Live & Video</a>
       <a href="#reviews" data-nav="reviews"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>Đánh giá</a>
       <a href="#ads" data-nav="ads"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>Shopee Ads</a>
       <a href="#orders" data-nav="orders"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Đơn hàng</a>
@@ -227,14 +228,6 @@
           <div class="card"><div class="card-h"><div><h3>Mã giảm giá của shop</h3><p class="card-sub">Đã dùng / giới hạn lượt dùng, số lượt khách đã lưu mã</p></div></div><div class="tbl-scroll" id="vchTable"></div></div>
         </div>
         <div class="card" id="promoKpiCard"></div>
-        <div class="card" id="videoCard">
-          <div class="card-h"><div><h3>Shopee Video & Livestream</h3><p class="card-sub" id="videoSub"></p></div></div>
-          <div class="tiles video-tiles" id="videoTiles"></div>
-          <div class="chart" id="videoChart"></div>
-          <div class="legend"><span><i class="lg-bar" style="--c:var(--c-indigo)"></i>Lượt xem video</span><span><i class="lg-bar" style="--c:var(--c-teal)"></i>Lượt xem live</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>Doanh thu video + live (₫, trục phải)</span></div>
-          <div class="tbl-scroll" id="liveTable"></div>
-          <div class="tbl-scroll" id="videoTable"></div>
-        </div>
       </section>
 
       <!-- ===== Customers & region ===== -->
@@ -265,6 +258,25 @@
           <div class="tiles exp-tiles" id="expTiles"></div>
           <div class="tbl-scroll" id="chanTable"></div>
         </div>
+      </section>
+
+      <section id="live" class="sec">
+        <div class="sec-h big"><h2>Live & Video</h2><span class="sec-sub">Số liệu Shopee Live và Shopee Video từ Creator Center, theo khoảng ngày đang chọn</span></div>
+        <div class="card" id="videoCard">
+          <div class="card-h"><div><h3>Shopee Video & Livestream</h3><p class="card-sub" id="videoSub"></p></div></div>
+          <div class="tiles video-tiles" id="videoTiles"></div>
+          <div class="chart" id="videoChart"></div>
+          <div class="legend"><span><i class="lg-bar" style="--c:var(--c-indigo)"></i>Lượt xem video</span><span><i class="lg-bar" style="--c:var(--c-teal)"></i>Lượt xem live</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>Doanh thu video + live (₫, trục phải)</span></div>
+          <div class="tbl-scroll" id="liveTable"></div>
+          <div class="tbl-scroll" id="videoTable"></div>
+        </div>
+        <div class="cards-2">
+          <div class="card"><div class="card-h"><div><h3>Người xem video</h3><p class="card-sub" id="vDemoSub"></p></div></div><div id="vDemo" class="demo"></div></div>
+          <div class="card"><div class="card-h"><div><h3>Người xem livestream</h3><p class="card-sub" id="lDemoSub"></p></div></div><div id="lDemo" class="demo"></div></div>
+        </div>
+        <div class="card"><div class="card-h"><div><h3>Hiệu quả từng video</h3><p class="card-sub">Cộng dồn các tháng nằm trong khoảng đang chọn</p></div></div><div class="tbl-scroll" id="vPerf"></div></div>
+        <div class="card"><div class="card-h"><div><h3>Hiệu quả từng phiên livestream</h3><p class="card-sub">Theo các tháng trong khoảng đang chọn</p></div></div><div class="tbl-scroll" id="lPerf"></div></div>
+        <div class="card"><div class="card-h"><div><h3>Sản phẩm trong Video & Live</h3><p class="card-sub">Sản phẩm được click / bán qua video và livestream</p></div></div><div class="tbl-scroll" id="vlProd"></div></div>
       </section>
 
       <!-- ===== Reviews ===== -->
@@ -335,7 +347,7 @@
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js?v=23"></script>
+<script src="assets/app.js?v=24"></script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>
