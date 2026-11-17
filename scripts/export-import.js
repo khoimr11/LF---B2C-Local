@@ -20,13 +20,13 @@
     const I = { sn: c('Mã đơn hàng'), t: c('Ngày đặt hàng'), s: c('Trạng Thái Đơn Hàng'), car: c('Đơn Vị Vận Chuyển'), ship: c('Phương thức giao hàng'), tp: c('Ngày gửi hàng'), ret: c('Trạng thái Trả hàng/Hoàn tiền'),
       psku: c('SKU sản phẩm'), vsku: c('SKU phân loại hàng'), vname: c('Tên phân loại hàng'), price: c('Giá ưu đãi'), qty: c('Số lượng'), paid: c('Tổng số tiền Người mua thanh toán'),
       vch: c('Mã giảm giá của Shop'), sf: c('Phí vận chuyển (dự kiến)'), sb: c('Phí vận chuyển mà người mua trả'), ss: c('Phí vận chuyển tài trợ bởi Shopee (dự kiến)'), td: c('Thời gian hoàn thành đơn hàng'),
-      fx: c('Phí cố định'), sv: c('Phí Dịch Vụ'), tx: c('Phí xử lý giao dịch'), prov: c('Tỉnh/Thành phố'), ward: c('TP / Quận / Huyện') };
+      fx: c('Phí cố định'), sv: c('Phí Dịch Vụ'), tx: c('Phí xử lý giao dịch'), prov: c('Tỉnh/Thành phố'), ward: c('TP / Quận / Huyện'), ward2: c('Quận') };  // file xuất: cột 'Quận' thực chất là phường/xã
     let n = 0;
     for (const x of rows.slice(1)) {
       const sn = x[I.sn]; if (!sn) continue; let o = S.rows.get(sn);
       if (!o) { n++; o = { sn, t: ts(x[I.t]), s: x[I.s] || '', car: String(x[I.car] || '').split(' ')[0] || null, chan: x[I.car] || '', exp: /h[oỏ]a\s*t[oố]c|instant|2h/i.test((x[I.car] || '') + ' ' + (x[I.ship] || '')) ? 1 : 0,
         tp: ts(x[I.tp]), td: ts(x[I.td]), ret: x[I.ret] ? 1 : 0, paid: num(x[I.paid]), sh: num(x[I.vch]), sf: num(x[I.sf]), sb: num(x[I.sb]), ss: num(x[I.ss]),
-        fx: num(x[I.fx]), sv: num(x[I.sv]), tx: num(x[I.tx]), prov: String(x[I.prov] || '').replace('Thành phố ', '').replace('Tỉnh ', ''), ward: x[I.ward] || '', items: [] }; S.rows.set(sn, o); }
+        fx: num(x[I.fx]), sv: num(x[I.sv]), tx: num(x[I.tx]), prov: String(x[I.prov] || '').replace('Thành phố ', '').replace('Tỉnh ', ''), ward: (x[I.ward2] ? x[I.ward2] + '|' : '') + (x[I.ward] || ''), items: [] }; S.rows.set(sn, o); }
       const sku = x[I.vsku] || x[I.psku] || '', q = num(x[I.qty]), p = num(x[I.price]);
       o.items.push([sku, q, p, null, null, '']); o.m = (o.m ? o.m + '/' : '') + (x[I.vname] || '');
       // phí là số theo đơn, Shopee có thể lặp ở mỗi dòng sản phẩm: giữ giá trị lớn nhất

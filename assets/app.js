@@ -202,6 +202,7 @@ function prepare(d) {
   // ward names masked by Shopee ("***ường An Khánh") -> match with a full name in the same province
   const fullW = {}; ORDERS.forEach(o => { if (WARD_PREFIX.test(o.ward)) (fullW[o.prov] = fullW[o.prov] || new Set()).add(o.ward); });
   ORDERS.forEach(o => { if (o.ward && !WARD_PREFIX.test(o.ward)) { const m = [...(fullW[o.prov] || [])].find(w => w.endsWith(o.ward)); o.ward = m || '…' + o.ward; } if (!o.ward) o.ward = 'Không rõ'; });
+  ORDERS.forEach(remapPlace);
 
   LEDGER = (d.ledger || []).map(r => ({ day: dayKey(r[0]), kind: r[1], amt: r[2] || 0, type: r[3] || '', from: r[4] || '' }))
     .sort((a, b) => a.day - b.day || (a.kind === 'spend') - (b.kind === 'spend'));
@@ -984,7 +985,23 @@ function start(d) {
   $('#login').hidden = true; $('#app').hidden = false; document.body.classList.add('fade-in');
   render();
 }
+// ===== Đơn vị hành chính mới (từ 1/7/2025): đổi tỉnh/quận/phường cũ sang 34 tỉnh + phường/xã mới =====
+let WM = null; const WMC = new Map(); const WMP = fetch('assets/wardmap.json?v=1').then(r => r.json()).catch(() => null);
+const wmN = (s, k) => { s = String(s || '').normalize('NFC').trim().toLowerCase().replace(/^…/, '');
+  s = k === 'p' ? s.replace(/^(thành phố|tỉnh|tp\.?)\s*/, '') : k === 'd' ? s.replace(/^(thành phố|quận|huyện|thị xã|tp\.?)\s+/, '') : s.replace(/^(phường|xã|thị trấn|đặc khu)\s+/, '');
+  return s.replace(/\s+/g, ' '); };
+const DIST_RE = /^(quận|huyện|thị xã|thành phố)\s/i;
+function remapPlace(o) {
+  if (!WM) return; const op = wmN(o.prov, 'p'), pi = WM.p[op]; if (pi == null) return;
+  const np = WM.np[pi], newSet = WM.n[pi] || [], w0 = o.ward || ''; o.provOld = o.prov; o.wardOld = w0; o.prov = np;
+  if (w0.includes('|')) { const [w, d] = w0.split('|'), hit = WM.w[op + '|' + wmN(d, 'd') + '|' + wmN(w, 'w')]; o.ward = hit ? hit[1] : w + ' (' + d + ', cũ)'; return; }
+  const wn = wmN(w0, 'w'); if (newSet.includes(wn)) return;
+  if (DIST_RE.test(w0.replace(/^…/, ''))) { o.ward = w0.replace(/^…/, '') + ' (cũ)'; return; }
+  const ck = op + '|' + wn; if (!WMC.has(ck)) { const hits = Object.entries(WM.w).filter(([k]) => k.startsWith(op + '|') && k.endsWith('|' + wn)); WMC.set(ck, hits.length === 1 ? hits[0][1][1] : null); }
+  if (WMC.get(ck)) o.ward = WMC.get(ck);
+}
 async function loadShop(shop) {
+  WM = WM || await WMP;
   if (!KEYS[shop]) shop = Object.keys(SHOPS).find(k => KEYS[k]);
   const file = await fetchEnc(shop), d = await decryptWith(KEYS[shop], file);
   applyShop(shop); start(d); scrollTo(0, 0);
