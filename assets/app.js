@@ -994,7 +994,11 @@ const DIST_RE = /^(quận|huyện|thị xã|thành phố)\s/i;
 function remapPlace(o) {
   if (!WM) return; const op = wmN(o.prov, 'p'), pi = WM.p[op]; if (pi == null) return;
   const np = WM.np[pi], newSet = WM.n[pi] || [], w0 = o.ward || ''; o.provOld = o.prov; o.wardOld = w0; o.prov = np;
-  if (w0.includes('|')) { const [w, d] = w0.split('|'), hit = WM.w[op + '|' + wmN(d, 'd') + '|' + wmN(w, 'w')]; o.ward = hit ? hit[1] : w + ' (' + d + ', cũ)'; return; }
+  if (w0.includes('|')) { const [w, d] = w0.split('|'), dk = op + '|' + wmN(d, 'd') + '|'; let hit = WM.w[dk + wmN(w, 'w')];
+    if (!hit) { // Shopee che đầu tên ("hường 6", "ng Hòa Khánh Bắc"): khớp theo phần đuôi trong cùng quận cũ
+      const m = String(w).normalize('NFC').toLowerCase().trim(); const cs = m.length >= 3 ? Object.keys(WM.w).filter(k => k.startsWith(dk) && ['phường ', 'xã ', 'thị trấn ', ''].some(p => (p + k.slice(dk.length)).endsWith(m))) : [];
+      if (cs.length === 1) hit = WM.w[cs[0]]; }
+    o.ward = hit ? hit[1] : w + ' (' + d + ', cũ)'; return; }
   const wn = wmN(w0, 'w'); if (newSet.includes(wn)) return;
   if (DIST_RE.test(w0.replace(/^…/, ''))) { o.ward = w0.replace(/^…/, '') + ' (cũ)'; return; }
   const ck = op + '|' + wn; if (!WMC.has(ck)) { const hits = Object.entries(WM.w).filter(([k]) => k.startsWith(op + '|') && k.endsWith('|' + wn)); WMC.set(ck, hits.length === 1 ? hits[0][1][1] : null); }
