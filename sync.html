@@ -79,6 +79,7 @@ function merge(data, add) {
   data.orders = [...bySn.values()].sort((a, b) => b[1] - a[1]);
   const byDay = new Map((data.ads || []).map(r => [r[0], r])); for (const r of add.ads || []) byDay.set(r[0], r); data.ads = [...byDay.values()].sort((a, b) => a[0] - b[0]);
   if (add.products && add.products.length) data.products = add.products;
+  for (const key of ['videoDaily', 'liveDaily']) if (add[key] && add[key].length) { const m = new Map((data[key] || []).map(r => [r[0], r])); add[key].forEach(r => m.set(r[0], r)); data[key] = [...m.values()].sort((x, y) => x[0] - y[0]); }
   if (add.videos && add.videos.length) { data.videos = add.videos; data.videosAt = add.videosAt || Math.floor(Date.now() / 1000); }
   if (add.reviews && add.reviews.length) { const rk = r => r[4] + '|' + r[0], m = new Map((data.reviews || []).map(r => [rk(r), r])); for (const r of add.reviews) m.set(rk(r), r); data.reviews = [...m.values()].sort((a, b) => b[0] - a[0]); }
   if (add.promo) { const P = data.promo || (data.promo = { fs: [], disc: [], vch: [], kpi: [] });
