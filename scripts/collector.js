@@ -169,6 +169,7 @@ window.LG = (() => {
           // từng dòng sản phẩm: [sku, sl, giá, item_id, model_id, cờ] — cờ: b = combo, a = hàng mua kèm, v = SKU ảo (bộ nhiều sản phẩm)
           items: it.map(i => [(i.item_model || {}).sku || (i.product || {}).sku || '', i.amount, Number(i.order_price), i.item_id, i.model_id, (i.bundle_deal_id ? 'b' : '') + (i.is_add_on_sub_item || i.add_on_deal_id ? 'a' : '') + (i.is_virtual_sku ? 'v' : '')]) });
       }
+      try { const si = await (await fetch('/api/selleraccount/shop_info/', { credentials: 'include' })).json(); S.shopName = (si.data && (si.data.name || si.data.shop_name)) || ''; } catch (e) {}
       S.phase = 'products';
       for (const iid of items) {
         const p = ((await j('/api/v3/product/get_product_info?product_id=' + iid + '&is_draft=false')).data || {}).product_info;
