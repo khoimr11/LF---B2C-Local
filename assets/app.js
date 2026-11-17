@@ -77,7 +77,7 @@ const SHOPS = {
   lf: { file: 'data/data.enc.json', name: 'Living Furniture', sub: 'Shopee · living_furniture', logo: 'assets/logo.png', slug: 'living-furniture' },
   nikon: { file: 'data/nikon.enc.json', name: 'Nikon Việt Nam', sub: 'Shopee · Nikon', logo: 'assets/nikon.png', slug: 'nikon' }
 };
-let VIDEOS = [], VIDAT = null, LIVES = [];
+let VIDEOS = [], VIDAT = null, LIVES = [], VDAY = [], LDAY = [];
 let SHOP = 'lf', KEYS = {}, BOUND = false;
 async function fetchEnc(shop = 'lf') {
   const r = await fetch(SHOPS[shop].file + '?ts=' + Date.now(), { cache: 'no-store' });
@@ -206,6 +206,10 @@ function prepare(d) {
   ORDERS.forEach(remapPlace);
 
   VIDEOS = (d.videos || []).map(r => ({ t: r[0], title: r[1], views: r[2] || 0, likes: r[3] || 0, cmt: r[4] || 0, prods: r[5] || 0, dur: r[6] || '' })).sort((x, y) => y.t - x.t); VIDAT = d.videosAt || null; LIVES = d.lives || [];
+  // [ngày, xem, người xem, xem >3s, tg xem TB ms, GMV đặt, GMV xác nhận, đơn đặt, đơn xác nhận, sp, người mua, thêm giỏ, hiển thị SP, click SP, thích, bình luận, chia sẻ, follow mới, tỷ lệ xem hết]
+  VDAY = (d.videoDaily || []).map(r => ({ day: dayKey(r[0]), views: r[1], viewers: r[2], eff: r[3], avgMs: r[4], gmvP: r[5], gmv: r[6], ordP: r[7], ord: r[8], items: r[9], buyers: r[10], atc: r[11], imp: r[12], clk: r[13], like: r[14], cmt: r[15], share: r[16], fol: r[17] }));
+  // [ngày, số phiên, tổng thời lượng ms, người xem, lượt xem, PCU, tg xem TB ms, người xem tương tác, GMV đặt, GMV xác nhận, đơn đặt, đơn xác nhận, sp, người mua, thêm giỏ, click SP, thích, bình luận, chia sẻ, follow mới]
+  LDAY = (d.liveDaily || []).map(r => ({ day: dayKey(r[0]), sess: r[1], durMs: r[2], viewers: r[3], views: r[4], pcu: r[5], avgMs: r[6], engaged: r[7], gmvP: r[8], gmv: r[9], ordP: r[10], ord: r[11], items: r[12], buyers: r[13], atc: r[14], clk: r[15], like: r[16], cmt: r[17], share: r[18], fol: r[19] }));
   LEDGER = (d.ledger || []).map(r => ({ day: dayKey(r[0]), kind: r[1], amt: r[2] || 0, type: r[3] || '', from: r[4] || '' }))
     .sort((a, b) => a.day - b.day || (a.kind === 'spend') - (b.kind === 'spend'));
   ADSPLIT = {}; WALLET = { paidIn: 0, freeIn: 0, paidUsed: 0, freeUsed: 0, freeBal: 0, paidBal: 0, hasLedger: LEDGER.length > 0 };
@@ -715,11 +719,25 @@ const slotLabel = f => dm(dayKey(f.a)) + ' ' + hm(f.a) + '–' + hm(f.b);
 const inRange = (a, b) => b >= (S.from * DAY - TZ) && a <= ((S.to + 1) * DAY - TZ);
 function renderVideos() {
   const el = $('#videoTiles'); if (!el) return;
-  const v = VIDEOS, views = sum(v, x => x.views), likes = sum(v, x => x.likes), cmt = sum(v, x => x.cmt), last = v[0];
-  $('#videoSub').textContent = v.length ? `Video đã đăng trên Shopee Video${VIDAT ? ' · số liệu chụp ngày ' + dmy(dayKey(VIDAT)) : ''} · Livestream: ${LIVES.length ? LIVES.length + ' phiên' : 'chưa có phiên nào'}` : 'Shop chưa đăng video và chưa livestream trên Shopee (Creator Center không có số liệu).';
-  el.innerHTML = [['Video đã đăng', full(v.length)], ['Lượt xem', full(views)], ['Lượt thích', full(likes)], ['Bình luận', full(cmt)], ['Video gần nhất', last ? dmy(dayKey(last.t)) : '—'], ['Phiên livestream', full(LIVES.length)]]
-    .map(([l, x]) => `<div class="tile"><span class="tile-l">${l}</span><span class="tile-v">${x}</span></div>`).join('');
-  $('#videoTable').innerHTML = v.length ? `<table><thead><tr><th>Ngày đăng</th><th>Video</th><th class="r">Thời lượng</th><th class="r">Lượt xem</th><th class="r">Thích</th><th class="r">Bình luận</th><th class="r">SP gắn</th></tr></thead><tbody>${v.map(x => `<tr><td>${dmy(dayKey(x.t))}</td><td>${esc(x.title)}</td><td class="r">${x.dur}</td><td class="r">${full(x.views)}</td><td class="r">${x.likes}</td><td class="r">${x.cmt}</td><td class="r">${x.prods}</td></tr>`).join('')}</tbody></table>` : '';
+  const inR = r => r.day >= C.a && r.day <= C.b, V = VDAY.filter(inR), L = LDAY.filter(inR), sm = (a, k) => sum(a, x => x[k] || 0);
+  const vViews = sm(V, 'views'), vGmv = sm(V, 'gmv'), vOrd = sm(V, 'ord'), lSess = sm(L, 'sess'), lGmv = sm(L, 'gmv'), lOrd = sm(L, 'ord');
+  const hasAny = VDAY.length || LDAY.length || VIDEOS.length;
+  $('#videoSub').textContent = hasAny ? `Số liệu từ Creator Center (Live & Video) theo ngày, trong khoảng đang chọn · GMV = đơn đã xác nhận` : 'Shop chưa đăng video và chưa livestream trên Shopee (Creator Center không có số liệu).';
+  const T = [['Lượt xem video', full(vViews), `${full(sm(V, 'viewers'))} người xem · ${full(sm(V, 'eff'))} lượt >3s`], ['Doanh thu từ video', short(vGmv) + ' ₫', `${vOrd} đơn · ${sm(V, 'atc')} lượt thêm giỏ`],
+    ['Tương tác video', full(sm(V, 'like') + sm(V, 'cmt') + sm(V, 'share')), `${sm(V, 'like')} thích · ${sm(V, 'cmt')} bình luận · +${sm(V, 'fol')} follow`],
+    ['Phiên livestream', full(lSess), lSess ? `${(sm(L, 'durMs') / 3.6e6).toFixed(1)} giờ live · PCU cao nhất ${Math.max(0, ...L.map(x => x.pcu))}` : 'Không có phiên trong kỳ'],
+    ['Doanh thu từ live', short(lGmv) + ' ₫', `${lOrd} đơn · ${full(sm(L, 'viewers'))} người xem`], ['Tương tác live', full(sm(L, 'like') + sm(L, 'cmt') + sm(L, 'share')), `${full(sm(L, 'like'))} thích · ${sm(L, 'cmt')} bình luận · +${sm(L, 'fol')} follow`]];
+  el.innerHTML = T.map(([l, v, f]) => `<div class="tile"><span class="tile-l">${l}</span><span class="tile-v">${v}</span><span class="tile-f"><em>${f}</em></span></div>`).join('');
+  const days = [...new Set([...V, ...L].map(x => x.day))].sort((a, b) => a - b);
+  const ch = $('#videoChart');
+  if (ch) { if (days.length) { const vm = new Map(V.map(x => [x.day, x])), lm = new Map(L.map(x => [x.day, x]));
+      colChart(ch, { labels: days.map(dm), series: [{ vals: days.map(d => (vm.get(d) || {}).views || 0), color: 'var(--c-indigo)' }, { vals: days.map(d => (lm.get(d) || {}).views || 0), color: 'var(--c-teal)' }],
+        lines: [{ vals: days.map(d => ((vm.get(d) || {}).gmv || 0) + ((lm.get(d) || {}).gmv || 0)), color: 'var(--c-blue)' }], yFmt: full, y2Fmt: short, barLabels: false, height: 220, aria: 'Lượt xem video, live và doanh thu theo ngày',
+        tipFn: i => { const v = vm.get(days[i]) || {}, l = lm.get(days[i]) || {}; return `<b>${dmy(days[i])}</b>` + tipRows([['Video: lượt xem', full(v.views || 0), 'var(--c-indigo)'], ['Video: doanh thu', full(v.gmv || 0) + ' ₫'], l.sess ? ['Live: phiên / người xem', `${l.sess} / ${full(l.viewers)}`, 'var(--c-teal)'] : null, l.sess ? ['Live: doanh thu', full(l.gmv || 0) + ' ₫'] : null]); } });
+    } else ch.innerHTML = '<p class="empty-note">Không có hoạt động video/live trong khoảng này.</p>'; }
+  const v = VIDEOS;
+  $('#videoTable').innerHTML = v.length ? `<h4 class="tbl-cap">Video đã đăng${VIDAT ? ' · số liệu chụp ' + dmy(dayKey(VIDAT)) : ''}</h4><table><thead><tr><th>Ngày đăng</th><th>Video</th><th class="r">Thời lượng</th><th class="r">Lượt xem</th><th class="r">Thích</th><th class="r">Bình luận</th><th class="r">SP gắn</th></tr></thead><tbody>${v.map(x => `<tr><td>${dmy(dayKey(x.t))}</td><td>${esc(x.title)}</td><td class="r">${x.dur}</td><td class="r">${full(x.views)}</td><td class="r">${x.likes}</td><td class="r">${x.cmt}</td><td class="r">${x.prods}</td></tr>`).join('')}</tbody></table>` : '';
+  const lt = $('#liveTable'); if (lt) lt.innerHTML = LDAY.length ? `<h4 class="tbl-cap">Các ngày livestream (toàn bộ)</h4><table><thead><tr><th>Ngày</th><th class="r">Phiên</th><th class="r">Thời lượng</th><th class="r">Người xem</th><th class="r">PCU</th><th class="r">Click SP</th><th class="r">Thêm giỏ</th><th class="r">Đơn đặt / xác nhận</th><th class="r">Doanh thu xác nhận</th><th class="r">Thích</th><th class="r">Follow mới</th></tr></thead><tbody>${LDAY.slice().reverse().map(x => `<tr><td>${dmy(x.day)}</td><td class="r">${x.sess}</td><td class="r">${(x.durMs / 3.6e6).toFixed(1)} giờ</td><td class="r">${full(x.viewers)}</td><td class="r">${x.pcu}</td><td class="r">${x.clk}</td><td class="r">${x.atc}</td><td class="r">${x.ordP} / ${x.ord}</td><td class="r">${full(x.gmv)} ₫</td><td class="r">${full(x.like)}</td><td class="r">+${x.fol}</td></tr>`).join('')}</tbody></table>` : '';
 }
 function renderPromos() {
   const ok = C.ok, by = k => ok.filter(o => o.src === k), n = C.nmv || 1;

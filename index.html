@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=22">
+<link rel="stylesheet" href="assets/styles.css?v=23">
 </head>
 <body>
 
@@ -230,6 +230,9 @@
         <div class="card" id="videoCard">
           <div class="card-h"><div><h3>Shopee Video & Livestream</h3><p class="card-sub" id="videoSub"></p></div></div>
           <div class="tiles video-tiles" id="videoTiles"></div>
+          <div class="chart" id="videoChart"></div>
+          <div class="legend"><span><i class="lg-bar" style="--c:var(--c-indigo)"></i>Lượt xem video</span><span><i class="lg-bar" style="--c:var(--c-teal)"></i>Lượt xem live</span><span><i class="lg-line" style="--c:var(--c-blue)"></i>Doanh thu video + live (₫, trục phải)</span></div>
+          <div class="tbl-scroll" id="liveTable"></div>
           <div class="tbl-scroll" id="videoTable"></div>
         </div>
       </section>
@@ -332,7 +335,7 @@
 </div>
 
 <div class="tooltip" id="tooltip" role="status"></div>
-<script src="assets/app.js?v=22"></script>
+<script src="assets/app.js?v=23"></script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>

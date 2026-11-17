@@ -49,6 +49,21 @@ window.LG = (() => {
       sb: g(o, 'Phí vận chuyển Người mua trả') || 0, sf: neg(g(o, 'Phí vận chuyển thực tế', 'Phí vận chuyển ước tính')), ss: g(o, 'Phí vận chuyển được trợ giá từ Shopee', 'Phí vận chuyển được trợ giá từ Shopee ước tính') || 0 };
   };
   const P = (u, b) => j(u, b);
+  async function videoLive(days) {
+    S.videoDaily = []; S.liveDaily = []; const pad = n => String(n).padStart(2, '0');
+    const g = async u => { for (let i = 0; i < 3; i++) { try { return await (await fetch(u, { credentials: 'include' })).json(); } catch (e) { await new Promise(r => setTimeout(r, 1500)); } } return null; };
+    for (let k = days; k >= 1; k--) {
+      const d = new Date(Date.now() + 7 * 3600e3 - k * 86400e3), day = d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()), ts = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 1000 - 25200;
+      const [a, b] = await Promise.all([g('/api/supply/sellercenter/video/v3/overview?endDate=' + day + '&timeDim=1d'), g('/api/supply/lm/sellercenter/overview/v3?endDate=' + day + '&timeDim=1d')]);
+      const pick = x => x && x.data && x.data.performance ? x.data : null, va = pick(a), lb = pick(b);
+      if (va) { const t = va.myShopTransaction || {}, p = va.performance || {}, c = va.conversionPerformance || {}, f = va.conversionFunnel || {}, e = va.engagement || {};
+        const r = [ts, p.totalViews || 0, p.totalViewer || 0, p.effectiveViews || 0, Math.round(p.avgViewDuration || 0), Math.round(t.placedGmv || 0), Math.round(t.confirmedGmv || 0), t.placedOrder || 0, t.confirmedOrder || 0, t.confirmedItemSold || 0, c.confirmedBuyerCnt || 0, c.atc || 0, f.productImpressionUv || 0, f.productClickUv || 0, e.like || 0, e.comment || 0, e.share || 0, e.newFollower || 0, e.completionRate || 0];
+        if (r.slice(1).some(x => x)) S.videoDaily.push(r); }
+      if (lb) { const t = lb.myShopTransaction || {}, p = lb.performance || {}, c = lb.conversionPerformance || {}, f = lb.conversionFunnel || {}, e = lb.engagement || {};
+        const r = [ts, p.totalSessionCnt || 0, Math.round(p.totalSessionDuration || 0), p.totalViewer || 0, p.totalViews || 0, p.pcu || 0, Math.round(p.avgViewDuration || 0), p.engagedViewer || 0, Math.round(t.placedGmv || 0), Math.round(t.confirmedGmv || 0), t.placedOrder || 0, t.confirmedOrder || 0, t.confirmedItemSold || 0, c.confirmedBuyerCnt || 0, c.atc || 0, f.productClickUv || 0, e.like || 0, e.comment || 0, e.share || 0, e.newFollower || 0];
+        if (r.slice(1).some(x => x)) S.liveDaily.push(r); }
+    }
+  }
   // kênh vận chuyển + giao hỏa tốc + mốc thời gian giao (quét key trong đơn vì Shopee đặt tên không cố định)
   const shipInfo = d => {
     const names = [], times = {};
@@ -170,6 +185,8 @@ window.LG = (() => {
         } }
       S.phase = 'promo';  // Flash Sale, chương trình giảm giá / combo / mua kèm, voucher, hiệu quả 7 ngày của từng công cụ
       try { await promo(now - orderDays * 86400); } catch (e) { S.promoErr = String(e); }
+      S.phase = 'video';  // Shopee Video & Live (Creator Center) theo ngày; API chỉ nhận đúng 1 ngày (timeDim=1d) cho mỗi lần gọi
+      try { await videoLive(S.all ? Math.ceil((Date.now() / 1000 - Date.UTC(2023, 6, 1) / 1000) / 86400) : 14); } catch (e) { S.videoErr = String(e); }
       S.phase = 'fees';
       const need = S.rows.filter(r => !/hủy/i.test(r.s) && r.t >= feeCut); S.feeTotal = need.length;
       for (const r of need) { const x = await fee(r.id); if (x.inc == null) x.retry = 1; Object.assign(r, x); S.feeDone++; }
@@ -193,7 +210,7 @@ window.LG = (() => {
     promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
     // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
     pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
-      S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()), catalog: S.catalog || [] });
+      S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()), catalog: S.catalog || [], videoDaily: S.videoDaily || [], liveDaily: S.liveDaily || [] });
       return JSON.stringify({ parts: Math.ceil(S.pack.length / 800), chars: S.pack.length, orders: rows.length, audit: this.audit() }); },
     // mỗi phần trả về dưới dạng chuỗi JSON (có dấu nháy) để dán nguyên văn vào LFSYNC.add(...) trên trang sync.html
     // gửi gói dữ liệu sang trang sync.html đã mở tab Shopee này (không đi qua Claude, không tốn token)

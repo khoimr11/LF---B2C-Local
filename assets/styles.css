@@ -609,3 +609,5 @@ td.up { color: var(--c-good); font-weight: 600; }
 
 .video-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 12px; }
 @media (max-width: 900px) { .video-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.tbl-cap { margin: 16px 0 6px; font-size: 13px; font-weight: 600; color: var(--label-2); }
