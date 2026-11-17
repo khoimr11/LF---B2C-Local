@@ -58,12 +58,16 @@ window.LG = (() => {
     let [y, m] = fromYm.split('-').map(Number);
     while (y < now.getUTCFullYear() || (y === now.getUTCFullYear() && m <= now.getUTCMonth() + 1)) {
       const last = new Date(Date.UTC(y, m, 0)), end = last > now ? new Date(now - 86400e3) : last, e = end.getUTCFullYear() + '-' + pad(end.getUTCMonth() + 1) + '-' + pad(end.getUTCDate()), q = '?endDate=' + e + '&timeDim=1m', ym = y + '-' + pad(m);
-      const [vo, lo] = await Promise.all([g('/api/supply/sellercenter/video/v3/overview' + q), g('/api/supply/lm/sellercenter/overview/v3' + q)]);
+      let [vo, lo] = await Promise.all([g('/api/supply/sellercenter/video/v3/overview' + q), g('/api/supply/lm/sellercenter/overview/v3' + q)]);
+      const cur = last > now; // tháng hiện tại: nếu 1m chưa có số thì dùng 30 ngày gần nhất
+      if (cur && !(vo && vo.performance)) vo = await g('/api/supply/sellercenter/video/v3/overview?endDate=' + e + '&timeDim=30d');
+      if (cur && !(lo && lo.performance)) lo = await g('/api/supply/lm/sellercenter/overview/v3?endDate=' + e + '&timeDim=30d');
       const vAct = vo && vo.performance && (vo.performance.totalViews || (vo.myShopTransaction || {}).placedOrder), lAct = lo && lo.performance && (lo.performance.totalSessionCnt || lo.performance.totalViews);
-      if (vAct || lAct) {
-        const rec = {};
-        if (vAct) { rec.vDemo = await g('/api/supply/sellercenter/video/v2/demographics' + q); rec.vList = await all('/api/supply/sellercenter/video/v2/videolist' + q); rec.vProd = await all('/api/supply/sellercenter/video/v2/productlist' + q); }
-        if (lAct) { rec.lDemo = await g('/api/supply/lm/sellercenter/userDemographics' + q); rec.lList = await all('/api/supply/lm/sellercenter/liveList/v2' + q); rec.lProd = await all('/api/supply/lm/sellercenter/productsList/v2' + q); }
+      const vl = await all('/api/supply/sellercenter/video/v2/videolist' + q), ll = await all('/api/supply/lm/sellercenter/liveList/v2' + q);  // danh sách luôn lấy (video đăng trong tháng có thể chưa có lượt xem)
+      if (vAct || lAct || vl.length || ll.length) {
+        const rec = {}; if (vl.length) rec.vList = vl; if (ll.length) rec.lList = ll;
+        if (vAct) { rec.vDemo = await g('/api/supply/sellercenter/video/v2/demographics' + q); rec.vProd = await all('/api/supply/sellercenter/video/v2/productlist' + q); }
+        if (lAct) { rec.lDemo = await g('/api/supply/lm/sellercenter/userDemographics' + q); rec.lProd = await all('/api/supply/lm/sellercenter/productsList/v2' + q); }
         S.vlMonths[ym] = rec;
       }
       if (++m > 12) { m = 1; y++; }
@@ -230,6 +234,8 @@ window.LG = (() => {
     chunk(i) { return S.rows.filter(r => S.all || r.t >= S.feeCut || !/^(Đã giao|Đã hủy|Hoàn thành)$/.test(r.s)).slice(i * 5, i * 5 + 5).map(r => JSON.stringify([r.sn, r.t, r.st, r.s, r.q, r.v, r.paid, r.m, r.p, r.prov, r.car, N(r.fx), N(r.sv), N(r.pi), N(r.tx), N(r.sh), N(r.pv), N(r.inc), r.sku, r.ret, r.iid, r.ward, N(r.sb), N(r.sf), N(r.ss), N(r.fin), N(r.surcharge), r.deal || '', r.chan || '', r.exp ? 1 : 0, N(r.tp), N(r.td), r.items || []])).join('\n'); },
     promo(all) { const c = all ? 0 : S.feeCut - 9 * 86400, P = S.promo; return JSON.stringify({ fs: P.fs.filter(f => f[1] + f[2] >= c), disc: P.disc.filter(d => d[4] >= c), vch: P.vch.filter(v => v[4] >= c), kpi: P.kpi }); },
     // một gói JSON duy nhất cho merge, cắt thành từng phần 900 ký tự để đọc qua javascript_tool (ghép lại theo thứ tự là ra collected.json)
+    vlOnly(from = '2023-07') { S.phase = 'vl'; (async () => { try { await vlMonths(from); await videoLive(Math.ceil((Date.now() / 1000 - Date.UTC(2023, 6, 1) / 1000) / 86400)); S.phase = 'vl-done'; } catch (e) { S.err = String(e); S.phase = 'error'; } })(); return 'started'; },
+    sendVL() { if (!window.opener) return 'no opener'; const json = JSON.stringify({ vlMonths: S.vlMonths || {}, videoDaily: S.videoDaily || [], liveDaily: S.liveDaily || [] }); window.opener.postMessage({ type: 'lfsync-pack', json }, 'https://khoimr11.github.io'); return 'sent ' + json.length; },
     pack() { const rows = []; for (let i = 0; ; i++) { const c = this.chunk(i); if (!c) break; c.split('\n').forEach(l => rows.push(JSON.parse(l))); }
       S.pack = JSON.stringify({ orders: rows, ads: JSON.parse(this.ads()), products: JSON.parse(this.products()), ledger: JSON.parse(this.ledger()), reviews: JSON.parse(this.reviews()), promo: JSON.parse(this.promo()), catalog: S.catalog || [], videoDaily: S.videoDaily || [], liveDaily: S.liveDaily || [], vlMonths: S.vlMonths || {} });
       return JSON.stringify({ parts: Math.ceil(S.pack.length / 800), chars: S.pack.length, orders: rows.length, audit: this.audit() }); },
