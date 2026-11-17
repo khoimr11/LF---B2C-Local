@@ -106,7 +106,12 @@ window.LFSYNC = {
     if (!FILES[shop]) throw new Error('Shop không hợp lệ: ' + shop);
     if (!ls.get(KN(shop)) || !ls.get('lf-gh')) throw new Error('Thiếu khóa dữ liệu hoặc mã GitHub: mở trang sync.html để thiết lập');
     let add; try { add = JSON.parse(buf.join('')); } catch (e) { throw new Error('Gói dữ liệu ghép lại không phải JSON hợp lệ: ' + e.message); }
-    const raw = b64d(ls.get(KN(shop))), { sha, file } = await getFile(shop), data = await decrypt(file, raw), res = merge(data, add);
+    const raw = b64d(ls.get(KN(shop))), { sha, file } = await getFile(shop), data = await decrypt(file, raw);
+    // Chặn đẩy nhầm shop: gói phải đúng tên shop (nếu có), và đơn trong gói phải trùng một phần với dữ liệu đang có
+    const SHOP_RE = { lf: /living/i, nikon: /nikon/i };
+    if (add.shopName && SHOP_RE[shop] && !SHOP_RE[shop].test(add.shopName)) throw new Error('Gói dữ liệu là của shop "' + add.shopName + '", không phải ' + shop + ' — dừng để không ghi nhầm');
+    if ((add.orders || []).length >= 5 && (data.orders || []).length >= 20) { const have = new Set(data.orders.map(r => r[0])); if (!add.orders.some(r => have.has(r[0]))) throw new Error('Không có đơn nào trùng với dữ liệu ' + shop + ' hiện có — có thể tab Shopee đang đăng nhập shop khác; dừng để không ghi nhầm'); }
+    const res = merge(data, add);
     const enc = await encrypt(data, raw, file), d = new Date(Date.now() + 7 * 3600e3);
     const msg = 'data: ' + (shop === 'lf' ? 'Shopee' : shop + ' Shopee') + ' sync ' + d.toISOString().slice(0, 16).replace('T', ' ') + ' GMT+7';
     const r = await fetch(api(shop), { method: 'PUT', headers: { ...tokH(), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, content: b64e(new TextEncoder().encode(JSON.stringify(enc))), sha, branch: 'main' }) });
