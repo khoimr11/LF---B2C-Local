@@ -986,10 +986,10 @@ function start(d) {
   render();
 }
 // ===== Đơn vị hành chính mới (từ 1/7/2025): đổi tỉnh/quận/phường cũ sang 34 tỉnh + phường/xã mới =====
-let WM = null; const WMC = new Map(); const WMP = fetch('assets/wardmap.json?v=1').then(r => r.json()).catch(() => null);
+let WM = null; const WMC = new Map(); const WMP = fetch('assets/wardmap.json?v=2').then(r => r.json()).catch(() => null);
 const wmN = (s, k) => { s = String(s || '').normalize('NFC').trim().toLowerCase().replace(/^…/, '');
   s = k === 'p' ? s.replace(/^(thành phố|tỉnh|tp\.?)\s*/, '') : k === 'd' ? s.replace(/^(thành phố|quận|huyện|thị xã|tp\.?)\s+/, '') : s.replace(/^(phường|xã|thị trấn|đặc khu)\s+/, '');
-  return s.replace(/\s+/g, ' '); };
+  return s.replace(/\s*[-–]\s*/g, ' - ').replace(/\s+/g, ' '); };
 const DIST_RE = /^(quận|huyện|thị xã|thành phố)\s/i;
 function remapPlace(o) {
   if (!WM) return; const op = wmN(o.prov, 'p'), pi = WM.p[op]; if (pi == null) return;
