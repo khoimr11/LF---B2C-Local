@@ -109,7 +109,17 @@ window.LG = (() => {
       for (const id of ids) {
         const d = (await j('/api/v3/order/get_one_order?order_id=' + id)).data;
         if (!d || d.create_time < cut) continue;
-        const a = (d.shipping_address || '').split(',').map(s => s.trim()), it = d.order_items || [];
+        // Combo (bundle deal): 1 dòng order_items = cả combo (amount = số combo, order_price = giá cả combo);
+        // số lượng thật nằm trong item_list[].amount, SKU nằm trong bundle_deal_model. Tách ra từng sản phẩm, chia giá theo số lượng.
+        const it = [];
+        (d.order_items || []).forEach(i => {
+          const sub = (i.item_list || []).filter(x => x && x.amount);
+          if (!sub.length) { it.push(i); return; }
+          const n = sub.reduce((s, x) => s + x.amount, 0) || 1, tot = Number(i.order_price) * (i.amount || 1), models = i.bundle_deal_model || [];
+          sub.forEach(x => { const m = models.find(mm => String(mm.model_id) === String(x.model_id)) || {};
+            it.push({ ...i, item_id: x.item_id || i.item_id, model_id: x.model_id || i.model_id, amount: x.amount * (i.amount || 1), order_price: tot / (n * (i.amount || 1)), item_model: { ...(i.item_model || {}), sku: m.sku || (i.item_model || {}).sku, name: m.name || (i.item_model || {}).name }, is_virtual_sku: x.is_virtual_sku || i.is_virtual_sku }); });
+        });
+        const a = (d.shipping_address || '').split(',').map(s => s.trim());
         it.forEach(i => items.add(i.item_id));
         S.rows.push({ id, sn: d.order_sn, t: d.create_time, st: d.status, s: (d.status_info_v2 || {}).status || '',
           q: it.reduce((s, i) => s + i.amount, 0), v: it.reduce((s, i) => s + i.amount * Number(i.order_price), 0), paid: Number(d.total_price),
