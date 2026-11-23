@@ -41,6 +41,10 @@ button.ghost{background:transparent;color:var(--fg2);border:1px solid var(--sep)
     <button>Kiểm tra và lưu mã</button>
   </form>
   <section class="card"><h2>Lấy dữ liệu</h2><p class="note">Bấm để mở Kênh Người Bán trong cửa sổ mới; dữ liệu sẽ được gửi thẳng về trang này rồi đẩy lên dashboard.</p><button type="button" id="openShop">Mở Kênh Người Bán Shopee</button></section>
+  <section class="card"><h2>Cập nhật 1 chạm (không cần tác vụ tự động)</h2>
+    <p class="note">Kéo nút dưới đây lên <b>thanh dấu trang</b> (bookmark bar) của Chrome, làm một lần cho mỗi profile. Muốn cập nhật thì mở Kênh Người Bán Shopee của shop rồi bấm dấu trang đó. Nó tự nhận shop, lấy dữ liệu và đẩy lên dashboard (LF khoảng 1–5 phút, Nikon có thể lâu hơn).</p>
+    <a id="bm" style="display:inline-block;padding:10px 14px;border-radius:10px;background:#9a7fd0;color:#fff;font-weight:600;text-decoration:none;cursor:grab;width:max-content" href="javascript:(()=>{fetch('https://raw.githubusercontent.com/khoimr11/LF---B2C-Local/main/scripts/autorun.js?t='+Date.now()).then(r=>r.text()).then(t=>(0,eval)(t)).catch(e=>alert('Cập nhật dashboard: '+e))})()">⚡ Cập nhật dashboard</a>
+    <p class="note">Không thấy thanh dấu trang thì bấm Ctrl+Shift+B.</p></section>
   <section class="card"><h2>Nhật ký</h2><pre id="log">—</pre><button class="ghost" id="forget" type="button">Xóa khóa và mã khỏi trình duyệt này</button></section>
 </main>
 <script>
@@ -93,9 +97,22 @@ function merge(data, add) {
 }
 let buf = [], shopWin = null, got = null;
 // nhận gói dữ liệu từ tab Shopee do chính trang này mở (postMessage, chỉ chấp nhận đúng cửa sổ và đúng origin)
-addEventListener('message', e => {
-  if (e.source !== shopWin || e.origin !== 'https://banhang.shopee.vn' || !e.data || e.data.type !== 'lfsync-pack') return;
+addEventListener('message', async e => {
+  if (e.origin !== 'https://banhang.shopee.vn' || !e.data || !e.source) return;
+  // chỉ nhận từ tab Shopee do trang này mở, hoặc tab Shopee đã mở trang này (bookmark 1 chạm)
+  if (e.source !== shopWin && e.source !== window.opener) return;
+  if (e.data.type === 'lfsync-ping') { e.source.postMessage({ type: 'lfsync-pong' }, e.origin); return; }
+  if (e.data.type !== 'lfsync-pack') return;
   buf = [String(e.data.json)]; got = { chars: buf[0].length, at: Date.now() }; log('Đã nhận dữ liệu từ Shopee: ' + got.chars + ' ký tự');
+  if (!e.data.auto) return;
+  // chế độ 1 chạm: tự nhận shop theo tên trong gói rồi đẩy lên
+  let shop = null, name = '';
+  try { name = JSON.parse(buf[0]).shopName || ''; shop = /living/i.test(name) ? 'lf' : /nikon/i.test(name) ? 'nikon' : null; } catch (x) {}
+  const reply = r => { try { e.source.postMessage({ type: 'lfsync-result', ...r }, e.origin); } catch (x) {} };
+  if (!shop) { log('Không nhận ra shop trong gói dữ liệu ("' + name + '")'); reply({ ok: false, msg: 'Không nhận ra shop "' + name + '"' }); return; }
+  log('Tự động đẩy lên dashboard: ' + shop);
+  try { const out = JSON.parse(await LFSYNC.publish(shop)); reply({ ok: true, shop, out }); }
+  catch (x) { log('Lỗi: ' + x.message); reply({ ok: false, msg: x.message }); }
 });
 window.LFSYNC = {
   ready(shop = 'lf') { return JSON.stringify({ shop, key: !!ls.get(KN(shop)), token: !!ls.get('lf-gh') }); },
