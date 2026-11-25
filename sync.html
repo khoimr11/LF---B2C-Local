@@ -162,6 +162,7 @@ $('#fTok').addEventListener('submit', async e => {
   refresh();
 });
 $('#openShop').addEventListener('click', () => { shopWin = window.open('https://banhang.shopee.vn/portal/sale/order', 'lfshop'); log(shopWin ? 'Đã mở Kênh Người Bán' : 'Trình duyệt chặn cửa sổ mới'); });
+$('#bm').addEventListener('click', e => { e.preventDefault(); alert('Nút này cần KÉO lên thanh dấu trang, không bấm ở đây.\n\n1. Bấm Ctrl+Shift+B để hiện thanh dấu trang.\n2. Giữ chuột vào nút tím, kéo thả lên thanh dấu trang.\n3. Mở Kênh Người Bán Shopee rồi bấm dấu trang vừa tạo.'); });
 $('#forget').addEventListener('click', () => { ls.del('lf-key'); ls.del('lf-key-nikon'); ls.del('lf-gh'); log('Đã xóa khóa và mã'); refresh(); });
 refresh();
 })();
